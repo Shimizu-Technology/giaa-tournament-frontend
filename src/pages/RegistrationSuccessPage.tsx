@@ -33,20 +33,36 @@ export const RegistrationSuccessPage: React.FC = () => {
         </div>
 
         <Card>
+          {/* Waitlist Banner - More prominent */}
+          {isWaitlist && (
+            <div className="bg-amber-50 border-b border-amber-200 -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 mb-4 sm:mb-6 px-4 sm:px-6 py-3 sm:py-4 rounded-t-xl">
+              <div className="flex items-center justify-center gap-2">
+                <span className="flex items-center justify-center w-6 h-6 bg-amber-500 rounded-full">
+                  <Clock className="text-white" size={14} />
+                </span>
+                <span className="font-semibold text-amber-800 text-sm sm:text-base">You're on the Waitlist</span>
+              </div>
+            </div>
+          )}
+
           <div className="text-center mb-4 sm:mb-6">
             {isWaitlist ? (
-              <Clock className="mx-auto text-amber-600 mb-3 sm:mb-4" size={48} />
+              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto bg-amber-100 rounded-full flex items-center justify-center mb-3 sm:mb-4">
+                <Clock className="text-amber-600" size={32} />
+              </div>
             ) : (
-              <CheckCircle className="mx-auto text-green-600 mb-3 sm:mb-4" size={48} />
+              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto bg-green-100 rounded-full flex items-center justify-center mb-3 sm:mb-4">
+                <CheckCircle className="text-green-600" size={32} />
+              </div>
             )}
 
             {isWaitlist ? (
               <div className="space-y-2 sm:space-y-3">
                 <h2 className="text-lg sm:text-2xl font-bold text-gray-900">
-                  You've Been Added to the Waitlist
+                  Registration Received!
                 </h2>
-                <p className="text-sm sm:text-base text-gray-600">
-                  {message || "The tournament has reached capacity (160 players), but don't worry! You're on our waitlist and will be notified immediately if a spot opens up."}
+                <p className="text-sm sm:text-base text-gray-600 max-w-md mx-auto">
+                  {message || "The tournament has reached capacity, but you're on our waitlist. We'll notify you immediately if a spot opens up!"}
                 </p>
               </div>
             ) : (
@@ -55,7 +71,7 @@ export const RegistrationSuccessPage: React.FC = () => {
                   Your Spot is Confirmed!
                 </h2>
                 <p className="text-sm sm:text-base text-gray-600">
-                  {message || `Thank you for registering for the Edward A.P. Muna II Memorial Golf Tournament. A confirmation email has been sent to ${registration?.email || 'your email'}.`}
+                  {message || "Your spot is confirmed!"}
                 </p>
               </div>
             )}
@@ -73,17 +89,29 @@ export const RegistrationSuccessPage: React.FC = () => {
                   <span className="text-gray-600">Email:</span>
                   <span className="font-medium text-gray-900">{registration.email}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Payment:</span>
-                  <span className="font-medium text-gray-900">
-                    {registration.payment_type === 'stripe' ? 'Pay Online' : 'Pay on Day'}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-sm items-center">
                   <span className="text-gray-600">Status:</span>
-                  <span className={`font-medium ${isWaitlist ? 'text-amber-600' : 'text-green-600'}`}>
-                    {isWaitlist ? 'Waitlist' : 'Confirmed'}
-                  </span>
+                  {isWaitlist ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">
+                      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                      Waitlist
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                      Confirmed
+                    </span>
+                  )}
+                </div>
+                <div className="flex justify-between text-sm items-center">
+                  <span className="text-gray-600">Payment:</span>
+                  {registration.payment_status === 'paid' ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                      Paid
+                    </span>
+                  ) : (
+                    <span className="font-medium text-gray-900">Pay on Day</span>
+                  )}
                 </div>
               </>
             )}

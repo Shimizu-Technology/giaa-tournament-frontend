@@ -161,9 +161,13 @@ export const LandingPage: React.FC = () => {
                   <p className="text-xs md:text-sm text-gray-600 mt-2">Windward Hills, Guam</p>
                 </div>
 
-                <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl p-4 md:p-5 border border-blue-100">
+                <div className={`rounded-xl p-4 md:p-5 border ${
+                  registrationStatus?.at_capacity 
+                    ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200' 
+                    : 'bg-gradient-to-br from-slate-50 to-blue-50 border-blue-100'
+                }`}>
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 bg-[#1e3a5f] rounded-lg">
+                    <div className={`p-2 rounded-lg ${registrationStatus?.at_capacity ? 'bg-amber-500' : 'bg-[#1e3a5f]'}`}>
                       <Users className="text-white" size={18} />
                     </div>
                     <h4 className="font-bold text-[#1e3a5f] text-sm md:text-base">Format</h4>
@@ -173,13 +177,19 @@ export const LandingPage: React.FC = () => {
                     Limited to {registrationStatus?.max_capacity ?? '...'} Players
                   </p>
                   {registrationStatus && (
-                    <p className="text-xs text-gray-500 mt-1">
+                    <div className="mt-2">
                       {registrationStatus.at_capacity ? (
-                        <span className="text-amber-600 font-medium">Waitlist Only</span>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">
+                          <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></span>
+                          Waitlist Only
+                        </span>
                       ) : (
-                        <span className="text-green-600">{registrationStatus.capacity_remaining} spots left</span>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                          <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                          {registrationStatus.capacity_remaining} spots left
+                        </span>
                       )}
-                    </p>
+                    </div>
                   )}
                 </div>
               </div>
