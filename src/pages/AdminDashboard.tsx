@@ -1,10 +1,29 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { Card, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Select } from '../components/ui';
-import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText, Trash2, UserPlus } from 'lucide-react';
+import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText, Trash2, UserPlus, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api, Golfer, GolferStats } from '../services/api';
 import { AddGolferModal } from '../components/AddGolferModal';
+
+// Format date for display (uses browser's locale which respects timezone)
+const formatRegistrationDate = (dateString: string) => {
+  const date = new Date(dateString);
+  return {
+    date: date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      timeZone: 'Pacific/Guam'
+    }),
+    time: date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Pacific/Guam'
+    }),
+  };
+};
 
 export const AdminDashboard: React.FC = () => {
   const [golfers, setGolfers] = useState<Golfer[]>([]);
@@ -107,19 +126,24 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const handleExport = () => {
-    const headers = ['Name', 'Email', 'Company', 'Phone', 'Payment Type', 'Payment Status', 'Registration Status', 'Group', 'Hole', 'Checked In'];
-    const csvData = filteredGolfers.map(g => [
-      g.name,
-      g.email,
-      g.company || '',
-      g.phone || '',
-      g.payment_type === 'stripe' ? 'Pay Now' : 'Pay on Day',
-      g.payment_status,
-      g.registration_status,
-      g.group_position_label || 'Unassigned',
-      g.hole_number || '-',
-      g.checked_in ? 'Yes' : 'No',
-    ]);
+    const headers = ['Name', 'Email', 'Company', 'Phone', 'Payment Type', 'Payment Status', 'Registration Status', 'Group', 'Hole', 'Checked In', 'Registered Date', 'Registered Time'];
+    const csvData = filteredGolfers.map(g => {
+      const regDate = g.created_at ? formatRegistrationDate(g.created_at) : { date: '', time: '' };
+      return [
+        g.name,
+        g.email,
+        g.company || '',
+        g.phone || '',
+        g.payment_type === 'stripe' ? 'Pay Now' : 'Pay on Day',
+        g.payment_status,
+        g.registration_status,
+        g.group_position_label || 'Unassigned',
+        g.hole_number || '-',
+        g.checked_in ? 'Yes' : 'No',
+        regDate.date,
+        regDate.time,
+      ];
+    });
     
     const csv = [headers, ...csvData].map(row => row.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -697,6 +721,28 @@ export const AdminDashboard: React.FC = () => {
                   ) : (
                     <span className="text-amber-600 font-medium">Waiver Not Signed</span>
                   )}
+                </div>
+              </div>
+
+              {/* Registration Info */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Registration</h4>
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <div className="flex items-center gap-3 text-sm">
+                    <Calendar className="text-gray-400 flex-shrink-0" size={18} />
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {selectedGolfer.created_at 
+                          ? formatRegistrationDate(selectedGolfer.created_at).date 
+                          : 'Unknown'}
+                      </p>
+                      <p className="text-gray-500 text-xs">
+                        {selectedGolfer.created_at 
+                          ? `at ${formatRegistrationDate(selectedGolfer.created_at).time} (Guam Time)` 
+                          : ''}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
