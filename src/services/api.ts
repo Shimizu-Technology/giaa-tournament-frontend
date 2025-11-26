@@ -43,10 +43,10 @@ export interface Group {
 
 export interface Admin {
   id: number;
-  clerk_id: string;
+  clerk_id: string | null;
   name: string | null;
-  email: string | null;
-  role: 'super_admin' | 'admin';
+  email: string;
+  role: 'super_admin' | 'admin' | null;
   is_super_admin: boolean;
 }
 
@@ -316,7 +316,7 @@ class ApiClient {
     return this.request('/api/v1/admins');
   }
 
-  async createAdmin(data: { clerk_id: string; name?: string; email?: string }): Promise<Admin> {
+  async createAdmin(data: { email: string; name?: string }): Promise<Admin> {
     return this.request('/api/v1/admins', {
       method: 'POST',
       body: JSON.stringify({ admin: data }),

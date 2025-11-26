@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { Card, Button, Input } from '../components/ui';
-import { Save, Settings as SettingsIcon, RefreshCw } from 'lucide-react';
-import { api, Settings } from '../services/api';
+import { Save, Settings as SettingsIcon, RefreshCw, UserPlus, Trash2, Users, CheckCircle, Clock } from 'lucide-react';
+import { api, Settings, Admin } from '../services/api';
+import toast from 'react-hot-toast';
 
 export const AdminSettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<Partial<Settings>>({
@@ -11,33 +12,78 @@ export const AdminSettingsPage: React.FC = () => {
     admin_email: '',
     max_capacity: 160,
   });
+  const [admins, setAdmins] = useState<Admin[]>([]);
+  const [currentAdmin, setCurrentAdmin] = useState<Admin | null>(null);
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [isAddingAdmin, setIsAddingAdmin] = useState(false);
+  const [deletingAdminId, setDeletingAdminId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSettings = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await api.getSettings();
+      const [settingsData, adminsData, meData] = await Promise.all([
+        api.getSettings(),
+        api.getAdmins(),
+        api.getCurrentAdmin(),
+      ]);
       setSettings({
-        stripe_public_key: data.stripe_public_key || '',
-        stripe_secret_key: data.stripe_secret_key || '',
-        admin_email: data.admin_email || '',
-        max_capacity: data.max_capacity || 160,
+        stripe_public_key: settingsData.stripe_public_key || '',
+        stripe_secret_key: settingsData.stripe_secret_key || '',
+        admin_email: settingsData.admin_email || '',
+        max_capacity: settingsData.max_capacity || 160,
       });
+      setAdmins(adminsData);
+      setCurrentAdmin(meData);
     } catch (err) {
-      console.error('Error fetching settings:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch settings');
+      console.error('Error fetching data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch data');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchSettings();
+    fetchData();
   }, []);
+
+  const handleAddAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAdminEmail.trim()) return;
+
+    setIsAddingAdmin(true);
+    try {
+      await api.createAdmin({ email: newAdminEmail.trim() });
+      toast.success(`Admin invite sent to ${newAdminEmail}`);
+      setNewAdminEmail('');
+      // Refresh admins list
+      const adminsData = await api.getAdmins();
+      setAdmins(adminsData);
+    } catch (err) {
+      console.error('Error adding admin:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to add admin');
+    } finally {
+      setIsAddingAdmin(false);
+    }
+  };
+
+  const handleDeleteAdmin = async (adminId: number) => {
+    setDeletingAdminId(adminId);
+    try {
+      await api.deleteAdmin(adminId);
+      toast.success('Admin removed');
+      setAdmins(admins.filter(a => a.id !== adminId));
+    } catch (err) {
+      console.error('Error removing admin:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to remove admin');
+    } finally {
+      setDeletingAdminId(null);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -238,6 +284,113 @@ export const AdminSettingsPage: React.FC = () => {
             </Button>
           </div>
         </form>
+
+        {/* Admin Management Section */}
+        <Card className="p-4 lg:p-6">
+          <div className="flex items-center gap-2 mb-2 lg:mb-4">
+            <Users className="text-blue-900" size={22} />
+            <h2 className="text-lg lg:text-xl font-bold text-gray-900">
+              Admin Management
+            </h2>
+          </div>
+          <p className="text-xs lg:text-sm text-gray-600 mb-4">
+            Manage who has admin access. Add admins by email - they'll be linked when they first log in via Clerk.
+          </p>
+
+          {/* Add New Admin Form */}
+          <form onSubmit={handleAddAdmin} className="flex gap-2 mb-4">
+            <div className="flex-1">
+              <input
+                type="email"
+                value={newAdminEmail}
+                onChange={(e) => setNewAdminEmail(e.target.value)}
+                placeholder="Enter email to add admin..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-sm"
+              />
+            </div>
+            <Button
+              type="submit"
+              disabled={isAddingAdmin || !newAdminEmail.trim()}
+              className="flex-shrink-0"
+            >
+              {isAddingAdmin ? (
+                <RefreshCw size={16} className="animate-spin" />
+              ) : (
+                <>
+                  <UserPlus size={16} />
+                  <span className="hidden sm:inline ml-1">Add</span>
+                </>
+              )}
+            </Button>
+          </form>
+
+          {/* Admins List */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              Current Admins ({admins.length})
+            </p>
+            {admins.length === 0 ? (
+              <p className="text-sm text-gray-500 py-4 text-center">No admins configured</p>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {admins.map((admin) => (
+                  <div
+                    key={admin.id}
+                    className="flex items-center justify-between py-3 gap-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className={`p-2 rounded-full flex-shrink-0 ${
+                        admin.clerk_id ? 'bg-green-100' : 'bg-amber-100'
+                      }`}>
+                        {admin.clerk_id ? (
+                          <CheckCircle className="text-green-600" size={16} />
+                        ) : (
+                          <Clock className="text-amber-600" size={16} />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {admin.email}
+                          {currentAdmin?.id === admin.id && (
+                            <span className="ml-2 text-xs text-blue-600">(You)</span>
+                          )}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {admin.clerk_id ? (
+                            <span className="text-green-600">Active</span>
+                          ) : (
+                            <span className="text-amber-600">Pending (hasn't logged in yet)</span>
+                          )}
+                          {admin.name && ` · ${admin.name}`}
+                        </p>
+                      </div>
+                    </div>
+                    {currentAdmin?.id !== admin.id && (
+                      <button
+                        onClick={() => handleDeleteAdmin(admin.id)}
+                        disabled={deletingAdminId === admin.id}
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                        title="Remove admin"
+                      >
+                        {deletingAdminId === admin.id ? (
+                          <RefreshCw size={16} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={16} />
+                        )}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 lg:p-4 mt-4">
+            <p className="text-xs lg:text-sm text-blue-900">
+              <strong>How it works:</strong> Add an email address, and when that person signs up/logs in through Clerk with that email, they'll automatically get admin access.
+            </p>
+          </div>
+        </Card>
       </div>
     </AdminLayout>
   );
