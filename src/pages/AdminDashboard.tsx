@@ -1,10 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { Card, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Select } from '../components/ui';
-import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText, Trash2, UserPlus, Calendar } from 'lucide-react';
+import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText, Trash2, UserPlus, Calendar, FileSpreadsheet } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api, Golfer, GolferStats } from '../services/api';
 import { AddGolferModal } from '../components/AddGolferModal';
+import * as XLSX from 'xlsx';
 
 // Format date for display (uses browser's locale which respects timezone)
 const formatRegistrationDate = (dateString: string) => {
@@ -42,6 +43,19 @@ export const AdminDashboard: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close export menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const fetchData = async () => {
     try {
@@ -125,34 +139,262 @@ export const AdminDashboard: React.FC = () => {
     setSearchTerm('');
   };
 
-  const handleExport = () => {
-    const headers = ['Name', 'Email', 'Company', 'Phone', 'Payment Type', 'Payment Status', 'Registration Status', 'Group', 'Hole', 'Checked In', 'Registered Date', 'Registered Time'];
-    const csvData = filteredGolfers.map(g => {
-      const regDate = g.created_at ? formatRegistrationDate(g.created_at) : { date: '', time: '' };
-      return [
-        g.name,
-        g.email,
-        g.company || '',
-        g.phone || '',
-        g.payment_type === 'stripe' ? 'Pay Now' : 'Pay on Day',
-        g.payment_status,
-        g.registration_status,
-        g.group_position_label || 'Unassigned',
-        g.hole_number || '-',
-        g.checked_in ? 'Yes' : 'No',
-        regDate.date,
-        regDate.time,
-      ];
-    });
-    
-    const csv = [headers, ...csvData].map(row => row.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+  // Excel Export Functions
+  const downloadExcel = (workbook: XLSX.WorkBook, filename: string) => {
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `golfers-export-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `${filename}-${new Date().toISOString().split('T')[0]}.xlsx`;
     a.click();
     window.URL.revokeObjectURL(url);
+    setShowExportMenu(false);
+    toast.success('Export downloaded!');
+  };
+
+  const exportFullList = () => {
+    const data = filteredGolfers.map(g => {
+      const regDate = g.created_at ? formatRegistrationDate(g.created_at) : { date: '', time: '' };
+      return {
+        'Name': g.name,
+        'Email': g.email,
+        'Company': g.company || '',
+        'Phone': g.phone || '',
+        'Payment Type': g.payment_type === 'stripe' ? 'Pay Now' : 'Pay on Day',
+        'Payment Status': g.payment_status,
+        'Payment Method': g.payment_method || '',
+        'Receipt #': g.receipt_number || '',
+        'Registration Status': g.registration_status,
+        'Group': g.group_position_label || 'Unassigned',
+        'Hole': g.hole_number || '-',
+        'Checked In': g.checked_in ? 'Yes' : 'No',
+        'Registered Date': regDate.date,
+        'Registered Time': regDate.time,
+      };
+    });
+    
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'All Registrants');
+    downloadExcel(wb, 'golfers-full-export');
+  };
+
+  const exportCheckInSheet = () => {
+    // Sort by hole number, then by group position
+    const sorted = [...golfers]
+      .filter(g => g.registration_status === 'confirmed')
+      .sort((a, b) => {
+        const holeA = a.hole_number || 999;
+        const holeB = b.hole_number || 999;
+        if (holeA !== holeB) return holeA - holeB;
+        return (a.group_position_label || 'ZZZ').localeCompare(b.group_position_label || 'ZZZ');
+      });
+    
+    const data = sorted.map(g => ({
+      'Name': g.name,
+      'Company': g.company || '',
+      'Group': g.group_position_label || 'Unassigned',
+      'Hole': g.hole_number || '-',
+      'Paid': g.payment_status === 'paid' ? '✓' : '',
+      'Checked In': g.checked_in ? '✓' : '',
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(data);
+    // Set column widths
+    ws['!cols'] = [{ wch: 25 }, { wch: 20 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 12 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Check-In Sheet');
+    downloadExcel(wb, 'check-in-sheet');
+  };
+
+  const exportGroupsByHole = () => {
+    // Get all unique holes and sort them
+    const holes = [...new Set(golfers.filter(g => g.hole_number).map(g => g.hole_number))].sort((a, b) => (a || 0) - (b || 0));
+    
+    const data: { Hole: number | string; Group: string; 'Player A': string; 'Player B': string; 'Player C': string; 'Player D': string }[] = [];
+    
+    holes.forEach(hole => {
+      const playersAtHole = golfers.filter(g => g.hole_number === hole);
+      // Group by group number
+      const groups = [...new Set(playersAtHole.map(g => g.group_position_label?.replace(/[ABCD]$/, '')))].filter(Boolean);
+      
+      groups.forEach(groupNum => {
+        const groupPlayers = playersAtHole.filter(g => g.group_position_label?.startsWith(groupNum || ''));
+        const row: { Hole: number | string; Group: string; 'Player A': string; 'Player B': string; 'Player C': string; 'Player D': string } = {
+          'Hole': hole || '-',
+          'Group': groupNum || '',
+          'Player A': '',
+          'Player B': '',
+          'Player C': '',
+          'Player D': '',
+        };
+        groupPlayers.forEach(p => {
+          const pos = p.group_position_label?.slice(-1);
+          if (pos === 'A') row['Player A'] = p.name;
+          if (pos === 'B') row['Player B'] = p.name;
+          if (pos === 'C') row['Player C'] = p.name;
+          if (pos === 'D') row['Player D'] = p.name;
+        });
+        data.push(row);
+      });
+    });
+    
+    // Add unassigned players
+    const unassigned = golfers.filter(g => !g.hole_number && g.registration_status === 'confirmed');
+    if (unassigned.length > 0) {
+      data.push({ Hole: '', Group: '', 'Player A': '', 'Player B': '', 'Player C': '', 'Player D': '' });
+      data.push({ Hole: 'UNASSIGNED', Group: '', 'Player A': '', 'Player B': '', 'Player C': '', 'Player D': '' });
+      unassigned.forEach(g => {
+        data.push({ Hole: '', Group: '', 'Player A': g.name, 'Player B': '', 'Player C': '', 'Player D': '' });
+      });
+    }
+    
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws['!cols'] = [{ wch: 8 }, { wch: 8 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 22 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Groups by Hole');
+    downloadExcel(wb, 'groups-by-hole');
+  };
+
+  const exportPaymentSummary = () => {
+    const confirmed = golfers.filter(g => g.registration_status === 'confirmed');
+    const paid = confirmed.filter(g => g.payment_status === 'paid');
+    const unpaid = confirmed.filter(g => g.payment_status === 'unpaid');
+    const entryFee = stats?.entry_fee_dollars || 125;
+    
+    // Summary data
+    const summaryData = [
+      { 'Category': 'Total Confirmed Registrants', 'Count': confirmed.length, 'Amount': '' },
+      { 'Category': 'Paid', 'Count': paid.length, 'Amount': `$${(paid.length * entryFee).toFixed(2)}` },
+      { 'Category': 'Unpaid (Pending)', 'Count': unpaid.length, 'Amount': `$${(unpaid.length * entryFee).toFixed(2)}` },
+      { 'Category': '', 'Count': '', 'Amount': '' },
+      { 'Category': 'Entry Fee', 'Count': '', 'Amount': `$${entryFee.toFixed(2)}` },
+      { 'Category': 'Total Collected', 'Count': '', 'Amount': `$${(paid.length * entryFee).toFixed(2)}` },
+      { 'Category': 'Total Expected (if all pay)', 'Count': '', 'Amount': `$${(confirmed.length * entryFee).toFixed(2)}` },
+    ];
+    
+    // Payment method breakdown
+    const byMethod: Record<string, number> = {};
+    paid.forEach(g => {
+      const method = g.payment_method || (g.payment_type === 'stripe' ? 'Online (Stripe)' : 'On Day');
+      byMethod[method] = (byMethod[method] || 0) + 1;
+    });
+    
+    summaryData.push({ 'Category': '', 'Count': '', 'Amount': '' });
+    summaryData.push({ 'Category': 'PAYMENT METHOD BREAKDOWN', 'Count': '', 'Amount': '' });
+    Object.entries(byMethod).forEach(([method, count]) => {
+      summaryData.push({ 
+        'Category': method.charAt(0).toUpperCase() + method.slice(1), 
+        'Count': count, 
+        'Amount': `$${(count * entryFee).toFixed(2)}` 
+      });
+    });
+    
+    const ws = XLSX.utils.json_to_sheet(summaryData);
+    ws['!cols'] = [{ wch: 30 }, { wch: 10 }, { wch: 15 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Payment Summary');
+    downloadExcel(wb, 'payment-summary');
+  };
+
+  const exportContactList = () => {
+    const data = golfers
+      .filter(g => g.registration_status === 'confirmed')
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(g => ({
+        'Name': g.name,
+        'Phone': g.phone || '',
+        'Email': g.email,
+        'Company': g.company || '',
+      }));
+    
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws['!cols'] = [{ wch: 25 }, { wch: 18 }, { wch: 30 }, { wch: 25 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Contact List');
+    downloadExcel(wb, 'contact-list');
+  };
+
+  const exportAllReports = () => {
+    const wb = XLSX.utils.book_new();
+    const entryFee = stats?.entry_fee_dollars || 125;
+    
+    // Sheet 1: Full List
+    const fullData = filteredGolfers.map(g => {
+      const regDate = g.created_at ? formatRegistrationDate(g.created_at) : { date: '', time: '' };
+      return {
+        'Name': g.name,
+        'Email': g.email,
+        'Company': g.company || '',
+        'Phone': g.phone || '',
+        'Payment Type': g.payment_type === 'stripe' ? 'Pay Now' : 'Pay on Day',
+        'Payment Status': g.payment_status,
+        'Payment Method': g.payment_method || '',
+        'Receipt #': g.receipt_number || '',
+        'Registration Status': g.registration_status,
+        'Group': g.group_position_label || 'Unassigned',
+        'Hole': g.hole_number || '-',
+        'Checked In': g.checked_in ? 'Yes' : 'No',
+        'Registered Date': regDate.date,
+        'Registered Time': regDate.time,
+      };
+    });
+    const ws1 = XLSX.utils.json_to_sheet(fullData);
+    XLSX.utils.book_append_sheet(wb, ws1, 'All Registrants');
+    
+    // Sheet 2: Check-In Sheet
+    const checkInData = [...golfers]
+      .filter(g => g.registration_status === 'confirmed')
+      .sort((a, b) => {
+        const holeA = a.hole_number || 999;
+        const holeB = b.hole_number || 999;
+        if (holeA !== holeB) return holeA - holeB;
+        return (a.group_position_label || 'ZZZ').localeCompare(b.group_position_label || 'ZZZ');
+      })
+      .map(g => ({
+        'Name': g.name,
+        'Company': g.company || '',
+        'Group': g.group_position_label || 'Unassigned',
+        'Hole': g.hole_number || '-',
+        'Paid': g.payment_status === 'paid' ? '✓' : '',
+        'Checked In': g.checked_in ? '✓' : '',
+      }));
+    const ws2 = XLSX.utils.json_to_sheet(checkInData);
+    ws2['!cols'] = [{ wch: 25 }, { wch: 20 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, ws2, 'Check-In Sheet');
+    
+    // Sheet 3: Payment Summary
+    const confirmed = golfers.filter(g => g.registration_status === 'confirmed');
+    const paid = confirmed.filter(g => g.payment_status === 'paid');
+    const unpaid = confirmed.filter(g => g.payment_status === 'unpaid');
+    const summaryData = [
+      { 'Category': 'Total Confirmed Registrants', 'Count': confirmed.length, 'Amount': '' },
+      { 'Category': 'Paid', 'Count': paid.length, 'Amount': `$${(paid.length * entryFee).toFixed(2)}` },
+      { 'Category': 'Unpaid (Pending)', 'Count': unpaid.length, 'Amount': `$${(unpaid.length * entryFee).toFixed(2)}` },
+      { 'Category': '', 'Count': '', 'Amount': '' },
+      { 'Category': 'Entry Fee', 'Count': '', 'Amount': `$${entryFee.toFixed(2)}` },
+      { 'Category': 'Total Collected', 'Count': '', 'Amount': `$${(paid.length * entryFee).toFixed(2)}` },
+    ];
+    const ws3 = XLSX.utils.json_to_sheet(summaryData);
+    ws3['!cols'] = [{ wch: 30 }, { wch: 10 }, { wch: 15 }];
+    XLSX.utils.book_append_sheet(wb, ws3, 'Payment Summary');
+    
+    // Sheet 4: Contact List
+    const contactData = golfers
+      .filter(g => g.registration_status === 'confirmed')
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(g => ({
+        'Name': g.name,
+        'Phone': g.phone || '',
+        'Email': g.email,
+        'Company': g.company || '',
+      }));
+    const ws4 = XLSX.utils.json_to_sheet(contactData);
+    ws4['!cols'] = [{ wch: 25 }, { wch: 18 }, { wch: 30 }, { wch: 25 }];
+    XLSX.utils.book_append_sheet(wb, ws4, 'Contact List');
+    
+    downloadExcel(wb, 'tournament-all-reports');
   };
 
   const handleDeleteGolfer = async () => {
@@ -224,13 +466,63 @@ export const AdminDashboard: React.FC = () => {
             >
               <RefreshCw size={18} />
             </button>
-            <button
-              onClick={handleExport}
-              className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
-              title="Export"
-            >
-              <Download size={18} />
-            </button>
+            <div className="relative" ref={exportMenuRef}>
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
+                title="Export"
+              >
+                <Download size={18} />
+              </button>
+              
+              {/* Export Dropdown Menu */}
+              {showExportMenu && (
+                <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50 animate-fade-in">
+                  <button
+                    onClick={exportAllReports}
+                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-900 font-medium border-b border-gray-100"
+                  >
+                    <FileSpreadsheet size={16} />
+                    All Reports (Excel)
+                  </button>
+                  <button
+                    onClick={exportFullList}
+                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <Download size={16} className="text-gray-400" />
+                    Full Registrant List
+                  </button>
+                  <button
+                    onClick={exportCheckInSheet}
+                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <CheckCircle size={16} className="text-gray-400" />
+                    Check-In Sheet
+                  </button>
+                  <button
+                    onClick={exportGroupsByHole}
+                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <Users size={16} className="text-gray-400" />
+                    Groups by Hole
+                  </button>
+                  <button
+                    onClick={exportPaymentSummary}
+                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <CreditCard size={16} className="text-gray-400" />
+                    Payment Summary
+                  </button>
+                  <button
+                    onClick={exportContactList}
+                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <Phone size={16} className="text-gray-400" />
+                    Contact List
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -291,13 +583,67 @@ export const AdminDashboard: React.FC = () => {
               <RefreshCw size={18} />
               <span>Refresh</span>
             </button>
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-colors"
-            >
-              <Download size={18} />
-              <span>Export</span>
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-colors"
+              >
+                <Download size={18} />
+                <span>Export</span>
+                <ChevronDown size={16} />
+              </button>
+              
+              {/* Export Dropdown Menu - Desktop */}
+              {showExportMenu && (
+                <div className="absolute right-0 top-full mt-1 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50 animate-fade-in">
+                  <button
+                    onClick={exportAllReports}
+                    className="w-full px-4 py-3 text-left text-sm hover:bg-blue-50 flex items-center gap-3 text-blue-900 font-medium border-b border-gray-100"
+                  >
+                    <FileSpreadsheet size={18} />
+                    <div>
+                      <div>All Reports</div>
+                      <div className="text-xs text-gray-500 font-normal">Multi-sheet Excel file</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={exportFullList}
+                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-gray-700"
+                  >
+                    <Download size={16} className="text-gray-400" />
+                    Full Registrant List
+                  </button>
+                  <button
+                    onClick={exportCheckInSheet}
+                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-gray-700"
+                  >
+                    <CheckCircle size={16} className="text-gray-400" />
+                    Check-In Sheet
+                  </button>
+                  <button
+                    onClick={exportGroupsByHole}
+                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-gray-700"
+                  >
+                    <Users size={16} className="text-gray-400" />
+                    Groups by Hole
+                  </button>
+                  <button
+                    onClick={exportPaymentSummary}
+                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-gray-700"
+                  >
+                    <CreditCard size={16} className="text-gray-400" />
+                    Payment Summary
+                  </button>
+                  <button
+                    onClick={exportContactList}
+                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center gap-3 text-gray-700"
+                  >
+                    <Phone size={16} className="text-gray-400" />
+                    Contact List
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
