@@ -33,11 +33,44 @@ export const RegistrationPage: React.FC = () => {
 
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
 
+  // Format phone number: only format when we have enough digits, allow free typing
+  const formatPhoneNumber = (value: string): string => {
+    // Remove all non-digits
+    const digits = value.replace(/\D/g, '');
+    
+    // If empty, return empty
+    if (digits.length === 0) return '';
+    
+    // Remove leading 1 if present (we'll add +1 in display)
+    let cleanDigits = digits;
+    if (digits.startsWith('1') && digits.length > 10) {
+      cleanDigits = digits.slice(1);
+    }
+    
+    // Limit to 10 digits
+    cleanDigits = cleanDigits.slice(0, 10);
+    
+    // Format progressively
+    if (cleanDigits.length <= 3) {
+      return cleanDigits;
+    } else if (cleanDigits.length <= 6) {
+      return `(${cleanDigits.slice(0, 3)}) ${cleanDigits.slice(3)}`;
+    } else {
+      return `(${cleanDigits.slice(0, 3)}) ${cleanDigits.slice(3, 6)}-${cleanDigits.slice(6)}`;
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
+    
+    let processedValue = value;
+    if (name === 'phone') {
+      processedValue = formatPhoneNumber(value);
+    }
+    
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: type === 'checkbox' ? checked : processedValue,
     }));
     if (errors[name as keyof FormData]) {
       setErrors(prev => ({ ...prev, [name]: undefined }));
@@ -210,16 +243,29 @@ export const RegistrationPage: React.FC = () => {
                   error={errors.email}
                   required
                 />
-                <Input
-                  label="Phone Number"
-                  name="phone"
-                  type="tel"
-                  placeholder="671-123-4567"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  error={errors.phone}
-                  required
-                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone Number <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex">
+                    <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                      +1
+                    </span>
+                    <input
+                      type="tel"
+                      name="phone"
+                      placeholder="(671) 123-4567"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      className={`flex-1 px-4 py-2 border rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-900 ${
+                        errors.phone ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    />
+                  </div>
+                  {errors.phone && (
+                    <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
+                  )}
+                </div>
               </div>
             )}
 

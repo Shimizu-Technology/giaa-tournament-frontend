@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { Card, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Select } from '../components/ui';
-import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText } from 'lucide-react';
+import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { api, Golfer, GolferStats } from '../services/api';
 
 export const AdminDashboard: React.FC = () => {
@@ -18,6 +19,8 @@ export const AdminDashboard: React.FC = () => {
   const [holeFilter, setHoleFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedGolfer, setSelectedGolfer] = useState<Golfer | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -124,6 +127,24 @@ export const AdminDashboard: React.FC = () => {
     a.download = `golfers-export-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
+  };
+
+  const handleDeleteGolfer = async () => {
+    if (!selectedGolfer) return;
+    
+    setIsDeleting(true);
+    try {
+      await api.deleteGolfer(selectedGolfer.id);
+      toast.success(`${selectedGolfer.name} has been removed`);
+      setSelectedGolfer(null);
+      setShowDeleteConfirm(false);
+      fetchData(); // Refresh the list
+    } catch (err) {
+      console.error('Error deleting golfer:', err);
+      toast.error('Failed to delete golfer');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (loading) {
@@ -498,7 +519,7 @@ export const AdminDashboard: React.FC = () => {
           {/* Backdrop */}
           <div 
             className="absolute inset-0 bg-black/50"
-            onClick={() => setSelectedGolfer(null)}
+            onClick={() => { setSelectedGolfer(null); setShowDeleteConfirm(false); }}
           />
           
           {/* Modal */}
@@ -507,7 +528,7 @@ export const AdminDashboard: React.FC = () => {
             <div className="sticky top-0 bg-white border-b border-gray-200 px-4 lg:px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg font-bold text-gray-900">Player Details</h3>
               <button 
-                onClick={() => setSelectedGolfer(null)}
+                onClick={() => { setSelectedGolfer(null); setShowDeleteConfirm(false); }}
                 className="p-2 rounded-full hover:bg-gray-100 transition-colors"
               >
                 <X size={20} />
@@ -629,11 +650,13 @@ export const AdminDashboard: React.FC = () => {
                   <p className={`text-sm ${
                     selectedGolfer.payment_status === 'paid' ? 'text-green-700' : 'text-amber-700'
                   }`}>
-                    {selectedGolfer.payment_type === 'stripe' 
-                      ? 'Paid online via Stripe' 
-                      : selectedGolfer.payment_status === 'paid'
-                      ? 'Paid on day of tournament'
-                      : 'Will pay on day of tournament ($125.00)'
+                    {selectedGolfer.payment_status === 'paid'
+                      ? selectedGolfer.payment_type === 'stripe'
+                        ? 'Paid online via Stripe'
+                        : 'Paid on day of tournament'
+                      : selectedGolfer.payment_type === 'stripe'
+                        ? 'Stripe payment pending ($125.00)'
+                        : 'Will pay on day of tournament ($125.00)'
                     }
                   </p>
                 </div>
@@ -652,6 +675,41 @@ export const AdminDashboard: React.FC = () => {
                     <span className="text-amber-600 font-medium">Waiver Not Signed</span>
                   )}
                 </div>
+              </div>
+
+              {/* Delete Section */}
+              <div className="pt-4 border-t border-gray-200">
+                {!showDeleteConfirm ? (
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
+                  >
+                    <Trash2 size={16} />
+                    Remove Golfer
+                  </button>
+                ) : (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p className="text-sm text-red-800 font-medium mb-3">
+                      Are you sure you want to remove {selectedGolfer.name}? This cannot be undone.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowDeleteConfirm(false)}
+                        disabled={isDeleting}
+                        className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleDeleteGolfer}
+                        disabled={isDeleting}
+                        className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+                      >
+                        {isDeleting ? 'Removing...' : 'Yes, Remove'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
