@@ -12,7 +12,8 @@ export interface Golfer {
   email: string;
   payment_type: 'stripe' | 'pay_on_day';
   payment_status: 'paid' | 'unpaid';
-  waiver_accepted_at: string;
+  waiver_accepted_at: string | null;
+  waiver_signed: boolean;
   checked_in_at: string | null;
   registration_status: 'confirmed' | 'waitlist';
   group_id: number | null;
@@ -152,6 +153,7 @@ class ApiClient {
       mobile?: string;
       email: string;
       payment_type: 'stripe' | 'pay_on_day';
+      payment_status?: 'paid' | 'unpaid';
       notes?: string;
     };
     waiver_accepted: boolean;

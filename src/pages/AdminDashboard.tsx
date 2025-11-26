@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { Card, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Select } from '../components/ui';
-import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText, Trash2 } from 'lucide-react';
+import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText, Trash2, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api, Golfer, GolferStats } from '../services/api';
+import { AddGolferModal } from '../components/AddGolferModal';
 
 export const AdminDashboard: React.FC = () => {
   const [golfers, setGolfers] = useState<Golfer[]>([]);
@@ -21,6 +22,7 @@ export const AdminDashboard: React.FC = () => {
   const [selectedGolfer, setSelectedGolfer] = useState<Golfer | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -185,6 +187,13 @@ export const AdminDashboard: React.FC = () => {
           <h1 className="text-lg font-bold text-gray-900">Dashboard</h1>
           <div className="flex items-center gap-1">
             <button
+              onClick={() => setShowAddModal(true)}
+              className="p-2 text-blue-600 hover:text-blue-800 transition-colors"
+              title="Add Golfer"
+            >
+              <UserPlus size={18} />
+            </button>
+            <button
               onClick={fetchData}
               className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
               title="Refresh"
@@ -220,6 +229,13 @@ export const AdminDashboard: React.FC = () => {
         <div className="hidden lg:flex items-center justify-between">
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <div className="flex gap-2">
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <UserPlus size={18} />
+              <span>Add Golfer</span>
+            </button>
             <button
               onClick={fetchData}
               className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
@@ -512,6 +528,13 @@ export const AdminDashboard: React.FC = () => {
           )}
         </Card>
       </div>
+
+      {/* Add Golfer Modal */}
+      <AddGolferModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSuccess={fetchData}
+      />
 
       {/* Golfer Detail Modal */}
       {selectedGolfer && (
