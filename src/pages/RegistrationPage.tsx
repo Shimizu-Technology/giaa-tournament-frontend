@@ -327,7 +327,7 @@ export const RegistrationPage: React.FC = () => {
                   Liability Waiver
                 </h2>
                 <LiabilityWaiver />
-                <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
                   <input
                     type="checkbox"
                     id="waiverAccepted"
@@ -339,6 +339,7 @@ export const RegistrationPage: React.FC = () => {
                   <label htmlFor="waiverAccepted" className="text-sm text-gray-700 font-medium">
                     I have read and agree to the Liability Waiver. I understand the risks
                     associated with participating in this golf tournament.
+                    <span className="text-red-500 ml-0.5">*</span>
                   </label>
                 </div>
                 {errors.waiverAccepted && (
@@ -350,7 +351,7 @@ export const RegistrationPage: React.FC = () => {
             {step === 4 && (
               <div className="space-y-4">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4">
-                  Payment Selection
+                  Payment Selection <span className="text-red-500 text-lg">*</span>
                 </h2>
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
                   <p className="text-base sm:text-lg font-semibold text-gray-900">
