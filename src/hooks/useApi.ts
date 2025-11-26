@@ -11,9 +11,10 @@ export function useApiAuth() {
 
   useEffect(() => {
     // Set the auth token getter so the API client can get fresh tokens
+    // Use the giaa-tournament JWT template which includes the email claim
     api.setAuthTokenGetter(async () => {
       try {
-        return await getToken();
+        return await getToken({ template: 'giaa-tournament' });
       } catch (error) {
         console.error('Failed to get auth token:', error);
         return null;

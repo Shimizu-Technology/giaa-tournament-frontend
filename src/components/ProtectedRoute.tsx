@@ -17,11 +17,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const [authStatus, setAuthStatus] = useState<AuthStatus>('loading');
   const authSetupRef = useRef(false);
 
-  // Set up API auth token getter
+  // Set up API auth token getter - use the giaa-tournament JWT template
   useEffect(() => {
     api.setAuthTokenGetter(async () => {
       try {
-        return await getToken();
+        return await getToken({ template: 'giaa-tournament' });
       } catch (error) {
         console.error('Failed to get auth token:', error);
         return null;
