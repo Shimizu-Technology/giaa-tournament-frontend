@@ -60,6 +60,7 @@ export interface Settings {
   entry_fee_dollars: number;
   admin_email: string | null;
   payment_mode: 'test' | 'production';
+  registration_open: boolean;
   capacity_remaining: number;
   at_capacity: boolean;
   stripe_configured: boolean;
@@ -85,6 +86,7 @@ export interface RegistrationStatus {
   waitlist_count: number;
   capacity_remaining: number;
   at_capacity: boolean;
+  registration_open: boolean;
   entry_fee_cents: number;
   entry_fee_dollars: number;
 }
@@ -154,7 +156,13 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Request failed' }));
-      throw new Error(error.error || error.message || 'Request failed');
+      // Handle different error formats from the API
+      const errorMessage = 
+        error.errors?.[0] ||  // Rails array format: { errors: ["message"] }
+        error.error ||        // Single error format: { error: "message" }
+        error.message ||      // Generic format: { message: "message" }
+        'Request failed';
+      throw new Error(errorMessage);
     }
 
     // Handle 204 No Content

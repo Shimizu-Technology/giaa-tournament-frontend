@@ -162,12 +162,20 @@ export const LandingPage: React.FC = () => {
                 </div>
 
                 <div className={`rounded-xl p-4 md:p-5 border ${
-                  registrationStatus?.at_capacity 
+                  registrationStatus?.registration_open === false
+                    ? 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-300'
+                    : registrationStatus?.at_capacity 
                     ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200' 
                     : 'bg-gradient-to-br from-slate-50 to-blue-50 border-blue-100'
                 }`}>
                   <div className="flex items-center gap-3 mb-3">
-                    <div className={`p-2 rounded-lg ${registrationStatus?.at_capacity ? 'bg-amber-500' : 'bg-[#1e3a5f]'}`}>
+                    <div className={`p-2 rounded-lg ${
+                      registrationStatus?.registration_open === false
+                        ? 'bg-gray-400'
+                        : registrationStatus?.at_capacity 
+                        ? 'bg-amber-500' 
+                        : 'bg-[#1e3a5f]'
+                    }`}>
                       <Users className="text-white" size={18} />
                     </div>
                     <h4 className="font-bold text-[#1e3a5f] text-sm md:text-base">Format</h4>
@@ -178,7 +186,12 @@ export const LandingPage: React.FC = () => {
                   </p>
                   {registrationStatus && (
                     <div className="mt-2">
-                      {registrationStatus.at_capacity ? (
+                      {registrationStatus.registration_open === false ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-200 text-gray-600 rounded-full text-xs font-semibold">
+                          <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
+                          Registration Closed
+                        </span>
+                      ) : registrationStatus.at_capacity ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">
                           <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></span>
                           Waitlist Only
@@ -222,14 +235,20 @@ export const LandingPage: React.FC = () => {
 
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button
-                  size="lg"
-                  onClick={() => navigate('/register')}
-                  className="w-full sm:w-auto text-base bg-[#1e3a5f] hover:bg-[#2c5282] shadow-lg shadow-blue-900/20"
-                >
-                  Register Now
-                  <ChevronRight size={18} className="ml-1" />
-                </Button>
+                {registrationStatus?.registration_open === false ? (
+                  <div className="w-full sm:w-auto px-6 py-3 bg-gray-100 border-2 border-gray-300 rounded-lg text-center">
+                    <p className="text-gray-600 font-semibold">Registration Closed</p>
+                  </div>
+                ) : (
+                  <Button
+                    size="lg"
+                    onClick={() => navigate('/register')}
+                    className="w-full sm:w-auto text-base bg-[#1e3a5f] hover:bg-[#2c5282] shadow-lg shadow-blue-900/20"
+                  >
+                    Register Now
+                    <ChevronRight size={18} className="ml-1" />
+                  </Button>
+                )}
                 
                 {isLoaded && isSignedIn ? (
                   <Button

@@ -12,6 +12,7 @@ export const AdminSettingsPage: React.FC = () => {
     stripe_webhook_secret: '',
     tournament_entry_fee: 12500,
     payment_mode: 'test',
+    registration_open: true,
     admin_email: '',
     max_capacity: 160,
   });
@@ -40,6 +41,7 @@ export const AdminSettingsPage: React.FC = () => {
         stripe_webhook_secret: settingsData.stripe_webhook_secret || '',
         tournament_entry_fee: settingsData.tournament_entry_fee || 12500,
         payment_mode: settingsData.payment_mode || 'test',
+        registration_open: settingsData.registration_open ?? true,
         admin_email: settingsData.admin_email || '',
         max_capacity: settingsData.max_capacity || 160,
       });
@@ -148,6 +150,42 @@ export const AdminSettingsPage: React.FC = () => {
         )}
 
         <form onSubmit={handleSave} className="space-y-4 lg:space-y-6">
+          {/* Registration Toggle */}
+          <Card className={`p-4 lg:p-6 border-2 ${settings.registration_open ? 'border-green-500' : 'border-red-500'}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-1">
+                  Registration Status
+                </h2>
+                <p className="text-xs lg:text-sm text-gray-600">
+                  {settings.registration_open 
+                    ? 'New golfers can register for the tournament.' 
+                    : 'Registration is closed. No new registrations allowed.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSettings(prev => ({ ...prev, registration_open: !prev.registration_open }))}
+                className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                  settings.registration_open 
+                    ? 'bg-green-500 focus:ring-green-500' 
+                    : 'bg-red-500 focus:ring-red-500'
+                }`}
+              >
+                <span
+                  className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-lg transition-transform ${
+                    settings.registration_open ? 'translate-x-7' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+            <div className={`mt-4 p-3 rounded-lg ${settings.registration_open ? 'bg-green-50' : 'bg-red-50'}`}>
+              <p className={`text-sm font-medium ${settings.registration_open ? 'text-green-800' : 'text-red-800'}`}>
+                {settings.registration_open ? '✓ Registration is OPEN' : '✕ Registration is CLOSED'}
+              </p>
+            </div>
+          </Card>
+
           {/* Payment Mode Toggle */}
           <Card className="p-4 lg:p-6">
             <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-2 lg:mb-4">
@@ -274,7 +312,6 @@ export const AdminSettingsPage: React.FC = () => {
                       const dollars = parseFloat(e.target.value) || 0;
                       const cents = Math.round(dollars * 100);
                       setSettings(prev => ({ ...prev, tournament_entry_fee: cents }));
-                      setHasChanges(true);
                     }}
                     step="0.01"
                     min="0"
