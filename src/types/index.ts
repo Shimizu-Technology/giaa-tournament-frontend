@@ -4,7 +4,7 @@ export interface Golfer {
   company: string;
   mailingAddress: string;
   phone: string;
-  mobile: string;
+  mobile?: string;
   email: string;
   paymentOption: 'pay-now' | 'pay-on-day';
   paymentStatus: 'paid' | 'unpaid';
@@ -41,7 +41,7 @@ export interface RegistrationFormData {
   company: string;
   mailingAddress: string;
   phone: string;
-  mobile: string;
+  mobile?: string;
   email: string;
   paymentOption: 'pay-now' | 'pay-on-day';
   waiverAccepted: boolean;
