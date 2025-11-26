@@ -1,13 +1,22 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, useUser, UserButton } from '@clerk/clerk-react';
 import { Button } from '../components/ui';
 import { Calendar, MapPin, Users, LayoutDashboard, Phone, ChevronRight } from 'lucide-react';
+import { api, RegistrationStatus } from '../services/api';
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const { isSignedIn, isLoaded } = useAuth();
   const { user } = useUser();
+  const [registrationStatus, setRegistrationStatus] = useState<RegistrationStatus | null>(null);
+
+  useEffect(() => {
+    // Fetch registration status (public endpoint)
+    api.getRegistrationStatus()
+      .then(setRegistrationStatus)
+      .catch(console.error);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 relative overflow-hidden">
@@ -160,7 +169,18 @@ export const LandingPage: React.FC = () => {
                     <h4 className="font-bold text-[#1e3a5f] text-sm md:text-base">Format</h4>
                   </div>
                   <p className="text-gray-900 font-semibold text-base md:text-lg">Individual Callaway</p>
-                  <p className="text-xs md:text-sm text-gray-600 mt-2">Limited to 160 Players</p>
+                  <p className="text-xs md:text-sm text-gray-600 mt-2">
+                    Limited to {registrationStatus?.max_capacity ?? '...'} Players
+                  </p>
+                  {registrationStatus && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {registrationStatus.at_capacity ? (
+                        <span className="text-amber-600 font-medium">Waitlist Only</span>
+                      ) : (
+                        <span className="text-green-600">{registrationStatus.capacity_remaining} spots left</span>
+                      )}
+                    </p>
+                  )}
                 </div>
               </div>
 

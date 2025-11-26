@@ -234,20 +234,44 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Mobile Stats - Clean summary text */}
-        <p className="text-sm text-gray-600 lg:hidden">
-          <span className="font-semibold text-gray-900">{stats?.total || 0}</span> registered
-          <span className="mx-1.5 text-gray-300">·</span>
-          <span className="font-semibold text-purple-600">{stats?.paid || 0}</span> paid
-          <span className="mx-1.5 text-gray-300">·</span>
-          <span className="font-semibold text-teal-600">{stats?.checked_in || 0}</span> checked in
-          {(stats?.waitlist || 0) > 0 && (
-            <>
-              <span className="mx-1.5 text-gray-300">·</span>
-              <span className="font-semibold text-amber-600">{stats?.waitlist}</span> waitlist
-            </>
+        {/* Mobile Stats - Clean summary with capacity */}
+        <div className="lg:hidden space-y-2">
+          {/* Capacity Bar */}
+          {stats && (
+            <div className="bg-white rounded-lg p-3 border border-gray-200">
+              <div className="flex items-center justify-between text-xs mb-1.5">
+                <span className="text-gray-600">
+                  Capacity: <span className="font-semibold text-gray-900">{stats.confirmed}/{stats.max_capacity}</span>
+                </span>
+                <span className={`font-medium ${stats.at_capacity ? 'text-amber-600' : 'text-green-600'}`}>
+                  {stats.at_capacity ? 'Full - Waitlist Only' : `${stats.capacity_remaining} spots left`}
+                </span>
+              </div>
+              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    stats.at_capacity ? 'bg-amber-500' : 
+                    stats.confirmed / stats.max_capacity > 0.8 ? 'bg-yellow-500' : 'bg-green-500'
+                  }`}
+                  style={{ width: `${Math.min(100, (stats.confirmed / stats.max_capacity) * 100)}%` }}
+                />
+              </div>
+            </div>
           )}
-        </p>
+          <p className="text-sm text-gray-600">
+            <span className="font-semibold text-gray-900">{stats?.total || 0}</span> registered
+            <span className="mx-1.5 text-gray-300">·</span>
+            <span className="font-semibold text-purple-600">{stats?.paid || 0}</span> paid
+            <span className="mx-1.5 text-gray-300">·</span>
+            <span className="font-semibold text-teal-600">{stats?.checked_in || 0}</span> checked in
+            {(stats?.waitlist || 0) > 0 && (
+              <>
+                <span className="mx-1.5 text-gray-300">·</span>
+                <span className="font-semibold text-amber-600">{stats?.waitlist}</span> waitlist
+              </>
+            )}
+          </p>
+        </div>
 
         {/* Desktop Header */}
         <div className="hidden lg:flex items-center justify-between">
@@ -276,6 +300,50 @@ export const AdminDashboard: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Desktop Capacity Indicator */}
+        {stats && (
+          <div className="hidden lg:block">
+            <Card className={`p-4 ${stats.at_capacity ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Users className={`${stats.at_capacity ? 'text-amber-600' : 'text-emerald-600'}`} size={24} />
+                    <div>
+                      <p className="text-sm text-gray-600">Tournament Capacity</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {stats.confirmed} <span className="text-lg font-normal text-gray-500">/ {stats.max_capacity}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="h-12 w-px bg-gray-300 mx-4" />
+                  <div>
+                    <p className="text-sm text-gray-600">Status</p>
+                    <p className={`text-lg font-semibold ${stats.at_capacity ? 'text-amber-600' : 'text-emerald-600'}`}>
+                      {stats.at_capacity ? '⚠️ Waitlist Only' : `${stats.capacity_remaining} spots available`}
+                    </p>
+                  </div>
+                </div>
+                <div className="w-64">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>0</span>
+                    <span>{Math.round((stats.confirmed / stats.max_capacity) * 100)}% full</span>
+                    <span>{stats.max_capacity}</span>
+                  </div>
+                  <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        stats.at_capacity ? 'bg-amber-500' : 
+                        stats.confirmed / stats.max_capacity > 0.8 ? 'bg-yellow-500' : 'bg-emerald-500'
+                      }`}
+                      style={{ width: `${Math.min(100, (stats.confirmed / stats.max_capacity) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
 
         {/* Desktop Stats Grid - Full cards */}
         <div className="hidden lg:grid lg:grid-cols-5 gap-4">

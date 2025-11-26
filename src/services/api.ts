@@ -97,6 +97,9 @@ export interface GolferStats {
   not_checked_in: number;
   assigned_to_groups: number;
   unassigned: number;
+  max_capacity: number;
+  capacity_remaining: number;
+  at_capacity: boolean;
 }
 
 export interface PaginationMeta {
