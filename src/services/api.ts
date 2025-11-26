@@ -55,9 +55,28 @@ export interface Settings {
   max_capacity: number;
   stripe_public_key: string | null;
   stripe_secret_key: string | null;
+  stripe_webhook_secret: string | null;
+  tournament_entry_fee: number | null;
+  entry_fee_dollars: number;
   admin_email: string | null;
+  payment_mode: 'test' | 'production';
   capacity_remaining: number;
   at_capacity: boolean;
+  stripe_configured: boolean;
+  test_mode: boolean;
+}
+
+export interface CheckoutSession {
+  checkout_url: string;
+  session_id: string;
+  golfer_id: number;
+  test_mode?: boolean;
+}
+
+export interface PaymentConfirmation {
+  success: boolean;
+  golfer: Golfer;
+  message: string;
 }
 
 export interface RegistrationStatus {
@@ -348,19 +367,30 @@ class ApiClient {
     });
   }
 
-  // Checkout
-  async createCheckoutSession(golferId: number): Promise<{ message: string; golfer_id: number; amount: number; currency: string }> {
+  // Checkout / Stripe
+  async createCheckoutSession(golferId: number): Promise<CheckoutSession> {
     return this.request('/api/v1/checkout', {
       method: 'POST',
       body: JSON.stringify({ golfer_id: golferId }),
     }, false);
   }
 
-  async confirmPayment(golferId: number): Promise<Golfer> {
+  async confirmPayment(sessionId: string): Promise<PaymentConfirmation> {
     return this.request('/api/v1/checkout/confirm', {
       method: 'POST',
-      body: JSON.stringify({ golfer_id: golferId }),
+      body: JSON.stringify({ session_id: sessionId }),
     }, false);
+  }
+
+  async getCheckoutSessionStatus(sessionId: string): Promise<{
+    session_id: string;
+    payment_status: string;
+    status: string;
+    golfer_id: number | null;
+    golfer_name: string | null;
+    amount_total: number | null;
+  }> {
+    return this.request(`/api/v1/checkout/session/${sessionId}`, {}, false);
   }
 }
 

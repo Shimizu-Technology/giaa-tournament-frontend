@@ -9,6 +9,9 @@ export const AdminSettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<Partial<Settings>>({
     stripe_public_key: '',
     stripe_secret_key: '',
+    stripe_webhook_secret: '',
+    tournament_entry_fee: 12500,
+    payment_mode: 'test',
     admin_email: '',
     max_capacity: 160,
   });
@@ -34,6 +37,9 @@ export const AdminSettingsPage: React.FC = () => {
       setSettings({
         stripe_public_key: settingsData.stripe_public_key || '',
         stripe_secret_key: settingsData.stripe_secret_key || '',
+        stripe_webhook_secret: settingsData.stripe_webhook_secret || '',
+        tournament_entry_fee: settingsData.tournament_entry_fee || 12500,
+        payment_mode: settingsData.payment_mode || 'test',
         admin_email: settingsData.admin_email || '',
         max_capacity: settingsData.max_capacity || 160,
       });
@@ -89,7 +95,9 @@ export const AdminSettingsPage: React.FC = () => {
     const { name, value } = e.target;
     setSettings((prev) => ({
       ...prev,
-      [name]: name === 'max_capacity' ? parseInt(value) || 0 : value,
+      [name]: ['max_capacity', 'tournament_entry_fee'].includes(name) 
+        ? parseInt(value) || 0 
+        : value,
     }));
   };
 
@@ -140,6 +148,82 @@ export const AdminSettingsPage: React.FC = () => {
         )}
 
         <form onSubmit={handleSave} className="space-y-4 lg:space-y-6">
+          {/* Payment Mode Toggle */}
+          <Card className="p-4 lg:p-6">
+            <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-2 lg:mb-4">
+              Payment Mode
+            </h2>
+            <p className="text-xs lg:text-sm text-gray-600 mb-4">
+              Control how payments are processed for new registrations.
+            </p>
+
+            <div className="space-y-3">
+              <label 
+                className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                  settings.payment_mode === 'test' 
+                    ? 'border-amber-500 bg-amber-50' 
+                    : 'border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="payment_mode"
+                  value="test"
+                  checked={settings.payment_mode === 'test'}
+                  onChange={handleChange}
+                  className="mt-0.5 w-4 h-4 text-amber-600"
+                />
+                <div>
+                  <p className="font-semibold text-gray-900">Test Mode (Simulated)</p>
+                  <p className="text-xs lg:text-sm text-gray-600">
+                    Payments are simulated - no real charges. Perfect for testing and demos.
+                    No Stripe configuration required.
+                  </p>
+                </div>
+              </label>
+
+              <label 
+                className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                  settings.payment_mode === 'production' 
+                    ? 'border-green-500 bg-green-50' 
+                    : 'border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="payment_mode"
+                  value="production"
+                  checked={settings.payment_mode === 'production'}
+                  onChange={handleChange}
+                  className="mt-0.5 w-4 h-4 text-green-600"
+                />
+                <div>
+                  <p className="font-semibold text-gray-900">Production (Real Payments)</p>
+                  <p className="text-xs lg:text-sm text-gray-600">
+                    Real Stripe checkout - actual payments will be processed.
+                    Requires Stripe API keys below.
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            {settings.payment_mode === 'test' && (
+              <div className="mt-4 bg-amber-100 border border-amber-300 rounded-lg p-3 lg:p-4">
+                <p className="text-xs lg:text-sm text-amber-900 font-medium">
+                  ⚠️ Test Mode Active - No real payments will be processed
+                </p>
+              </div>
+            )}
+
+            {settings.payment_mode === 'production' && !settings.stripe_secret_key && (
+              <div className="mt-4 bg-red-100 border border-red-300 rounded-lg p-3 lg:p-4">
+                <p className="text-xs lg:text-sm text-red-900 font-medium">
+                  ⚠️ Production mode requires Stripe API keys. Configure them below.
+                </p>
+              </div>
+            )}
+          </Card>
+
           <Card className="p-4 lg:p-6">
             <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-2 lg:mb-4">
               Stripe Configuration
@@ -167,6 +251,29 @@ export const AdminSettingsPage: React.FC = () => {
                 type="password"
               />
 
+              <Input
+                label="Stripe Webhook Secret (Optional)"
+                name="stripe_webhook_secret"
+                value={settings.stripe_webhook_secret || ''}
+                onChange={handleChange}
+                placeholder="whsec_..."
+                type="password"
+              />
+
+              <div className="max-w-xs">
+                <Input
+                  label="Entry Fee (cents)"
+                  name="tournament_entry_fee"
+                  type="number"
+                  value={settings.tournament_entry_fee?.toString() || '12500'}
+                  onChange={handleChange}
+                  min="100"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Current: ${((settings.tournament_entry_fee || 12500) / 100).toFixed(2)}
+                </p>
+              </div>
+
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 lg:p-4">
                 <p className="text-xs lg:text-sm text-blue-900">
                   <strong>Note:</strong> Find your Stripe API keys in your{' '}
@@ -178,7 +285,16 @@ export const AdminSettingsPage: React.FC = () => {
                   >
                     Stripe Dashboard
                   </a>
-                  . Use test keys for development.
+                  . Use test keys for development. The webhook secret is found in{' '}
+                  <a
+                    href="https://dashboard.stripe.com/webhooks"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-blue-700"
+                  >
+                    Webhooks settings
+                  </a>
+                  .
                 </p>
               </div>
             </div>

@@ -9,6 +9,7 @@ export const RegistrationSuccessPage: React.FC = () => {
   const registration = location.state?.registration;
   const message = location.state?.message;
   const paymentType = location.state?.paymentType;
+  const checkoutError = location.state?.checkoutError;
 
   const isWaitlist = registration?.registration_status === 'waitlist';
 
@@ -80,6 +81,13 @@ export const RegistrationSuccessPage: React.FC = () => {
               </>
             )}
           </div>
+
+          {checkoutError && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+              <h3 className="font-semibold text-amber-900 text-sm sm:text-base mb-2">Payment Notice</h3>
+              <p className="text-xs sm:text-sm text-amber-700">{checkoutError}</p>
+            </div>
+          )}
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
             <h3 className="font-semibold text-blue-900 text-sm sm:text-base mb-2">What's Next?</h3>

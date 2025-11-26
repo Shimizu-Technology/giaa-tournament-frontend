@@ -155,7 +155,30 @@ export const RegistrationPage: React.FC = () => {
         waiver_accepted: formData.waiverAccepted,
       });
 
-      // Navigate to success page with registration data
+      // If user selected "Pay Now", redirect to Stripe Checkout
+      if (formData.paymentOption === 'pay-now') {
+        try {
+          const checkoutSession = await api.createCheckoutSession(result.golfer.id);
+          
+          // Redirect to Stripe Checkout
+          window.location.href = checkoutSession.checkout_url;
+          return; // Don't navigate away - we're redirecting to Stripe
+        } catch (checkoutError) {
+          console.error('Checkout error:', checkoutError);
+          // If checkout fails, still show success but with a warning
+          navigate('/registration/success', { 
+            state: { 
+              registration: result.golfer,
+              message: result.message,
+              paymentType: formData.paymentOption,
+              checkoutError: 'Unable to initiate online payment. Please contact support or pay on tournament day.',
+            } 
+          });
+          return;
+        }
+      }
+
+      // For "Pay on Day", navigate to success page
       navigate('/registration/success', { 
         state: { 
           registration: result.golfer,
