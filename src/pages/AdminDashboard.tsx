@@ -770,8 +770,8 @@ export const AdminDashboard: React.FC = () => {
                         ? 'Paid online via Stripe'
                         : 'Paid on day of tournament'
                       : selectedGolfer.payment_type === 'stripe'
-                        ? 'Stripe payment pending ($125.00)'
-                        : 'Will pay on day of tournament ($125.00)'
+                        ? `Stripe payment pending ($${stats?.entry_fee_dollars?.toFixed(2) ?? '125.00'})`
+                        : `Will pay on day of tournament ($${stats?.entry_fee_dollars?.toFixed(2) ?? '125.00'})`
                     }
                   </p>
                 </div>

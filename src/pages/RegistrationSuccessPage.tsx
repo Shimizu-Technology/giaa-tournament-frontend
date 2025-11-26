@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button, Card } from '../components/ui';
 import { CheckCircle, Clock, Trophy } from 'lucide-react';
+import { api, RegistrationStatus } from '../services/api';
 
 export const RegistrationSuccessPage: React.FC = () => {
   const location = useLocation();
@@ -10,7 +11,15 @@ export const RegistrationSuccessPage: React.FC = () => {
   const message = location.state?.message;
   const paymentType = location.state?.paymentType;
   const checkoutError = location.state?.checkoutError;
+  const [registrationStatus, setRegistrationStatus] = useState<RegistrationStatus | null>(null);
 
+  useEffect(() => {
+    api.getRegistrationStatus()
+      .then(setRegistrationStatus)
+      .catch(console.error);
+  }, []);
+
+  const entryFee = registrationStatus?.entry_fee_dollars ?? 125;
   const isWaitlist = registration?.registration_status === 'waitlist';
 
   return (
@@ -138,7 +147,7 @@ export const RegistrationSuccessPage: React.FC = () => {
                   <li>Check your email for confirmation and additional details</li>
                   <li>Mark your calendar: January 9, 2026</li>
                   {(paymentType === 'pay-on-day' || registration?.payment_type === 'pay_on_day') && (
-                    <li>Remember to bring payment ($125.00) on the day of the tournament</li>
+                    <li>Remember to bring payment (${entryFee.toFixed(2)}) on the day of the tournament</li>
                   )}
                   <li>Arrive early for check-in (Registration starts at 11:00 am)</li>
                 </>

@@ -22,7 +22,8 @@ const PlayerDetailPanel: React.FC<{
   onRecordPayment: () => void;
   onClose: () => void;
   showCloseButton?: boolean;
-}> = ({ golfer, paymentInfo, setPaymentInfo, isProcessing, onCheckIn, onRecordPayment, onClose, showCloseButton = true }) => {
+  entryFee?: number;
+}> = ({ golfer, paymentInfo, setPaymentInfo, isProcessing, onCheckIn, onRecordPayment, onClose, showCloseButton = true, entryFee = 125 }) => {
   return (
     <div className="space-y-4 lg:space-y-6">
       <div className="flex items-center gap-3 lg:gap-4">
@@ -126,7 +127,7 @@ const PlayerDetailPanel: React.FC<{
               <p className="font-semibold text-amber-800">Payment Required</p>
             </div>
             <p className="text-sm text-amber-700">
-              Collect $125.00 before checking in
+              Collect ${entryFee.toFixed(2)} before checking in
             </p>
           </div>
 
@@ -186,7 +187,7 @@ const PlayerDetailPanel: React.FC<{
               ) : (
                 <>
                   <DollarSign size={18} className="mr-2" />
-                  Mark as Paid ($125)
+                  Mark as Paid (${entryFee.toFixed(0)})
                 </>
               )}
             </Button>
@@ -612,6 +613,7 @@ export const CheckInPage: React.FC = () => {
                 onRecordPayment={handleRecordPayment}
                 onClose={handleClearSelection}
                 showCloseButton={true}
+                entryFee={stats?.entry_fee_dollars ?? 125}
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-full py-16 text-center">
@@ -668,6 +670,7 @@ export const CheckInPage: React.FC = () => {
                 onRecordPayment={handleRecordPayment}
                 onClose={handleClearSelection}
                 showCloseButton={false}
+                entryFee={stats?.entry_fee_dollars ?? 125}
               />
             </div>
           </div>

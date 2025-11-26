@@ -261,16 +261,28 @@ export const AdminSettingsPage: React.FC = () => {
               />
 
               <div className="max-w-xs">
-                <Input
-                  label="Entry Fee (cents)"
-                  name="tournament_entry_fee"
-                  type="number"
-                  value={settings.tournament_entry_fee?.toString() || '12500'}
-                  onChange={handleChange}
-                  min="100"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Entry Fee ($)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    name="tournament_entry_fee_dollars"
+                    value={((settings.tournament_entry_fee || 12500) / 100).toFixed(2)}
+                    onChange={(e) => {
+                      const dollars = parseFloat(e.target.value) || 0;
+                      const cents = Math.round(dollars * 100);
+                      setSettings(prev => ({ ...prev, tournament_entry_fee: cents }));
+                      setHasChanges(true);
+                    }}
+                    step="0.01"
+                    min="0"
+                    className="w-full pl-7 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
+                  />
+                </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Current: ${((settings.tournament_entry_fee || 12500) / 100).toFixed(2)}
+                  e.g., 125.00 for $125
                 </p>
               </div>
 

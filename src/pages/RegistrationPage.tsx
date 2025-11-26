@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Input, Card } from '../components/ui';
 import { LiabilityWaiver } from '../components/LiabilityWaiver';
 import { ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
-import { api } from '../services/api';
+import { api, RegistrationStatus } from '../services/api';
 
 interface FormData {
   fullName: string;
@@ -20,6 +20,16 @@ export const RegistrationPage: React.FC = () => {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [registrationStatus, setRegistrationStatus] = useState<RegistrationStatus | null>(null);
+  
+  // Fetch entry fee on mount
+  useEffect(() => {
+    api.getRegistrationStatus()
+      .then(setRegistrationStatus)
+      .catch(console.error);
+  }, []);
+
+  const entryFee = registrationStatus?.entry_fee_dollars ?? 125;
   
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
@@ -355,7 +365,7 @@ export const RegistrationPage: React.FC = () => {
                 </h2>
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
                   <p className="text-base sm:text-lg font-semibold text-gray-900">
-                    Entry Fee: $125.00
+                    Entry Fee: ${entryFee.toFixed(2)}
                   </p>
                   <p className="text-xs sm:text-sm text-gray-600 mt-1">
                     Includes Green Fee, Ditty Bag, Drinks & Food on the Course

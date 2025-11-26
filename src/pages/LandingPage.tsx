@@ -199,7 +199,7 @@ export const LandingPage: React.FC = () => {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div>
                     <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-3">
-                      Entry Fee: <span className="text-[#059669]">$125.00</span>
+                      Entry Fee: <span className="text-[#059669]">${registrationStatus?.entry_fee_dollars?.toFixed(2) ?? '125.00'}</span>
                     </h3>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
                       <span className="flex items-center gap-1">

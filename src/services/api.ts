@@ -85,6 +85,8 @@ export interface RegistrationStatus {
   waitlist_count: number;
   capacity_remaining: number;
   at_capacity: boolean;
+  entry_fee_cents: number;
+  entry_fee_dollars: number;
 }
 
 export interface GolferStats {
@@ -100,6 +102,8 @@ export interface GolferStats {
   max_capacity: number;
   capacity_remaining: number;
   at_capacity: boolean;
+  entry_fee_cents: number;
+  entry_fee_dollars: number;
 }
 
 export interface PaginationMeta {
