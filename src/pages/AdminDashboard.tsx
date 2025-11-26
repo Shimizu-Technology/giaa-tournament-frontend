@@ -774,6 +774,30 @@ export const AdminDashboard: React.FC = () => {
                         : `Will pay on day of tournament ($${stats?.entry_fee_dollars?.toFixed(2) ?? '125.00'})`
                     }
                   </p>
+                  
+                  {/* Payment Details - shown when paid */}
+                  {selectedGolfer.payment_status === 'paid' && (
+                    <div className="mt-3 pt-3 border-t border-green-200 space-y-2 text-sm">
+                      {selectedGolfer.payment_method && (
+                        <div className="flex justify-between">
+                          <span className="text-green-600">Method:</span>
+                          <span className="text-green-800 font-medium capitalize">{selectedGolfer.payment_method}</span>
+                        </div>
+                      )}
+                      {selectedGolfer.receipt_number && (
+                        <div className="flex justify-between">
+                          <span className="text-green-600">Receipt #:</span>
+                          <span className="text-green-800 font-medium">{selectedGolfer.receipt_number}</span>
+                        </div>
+                      )}
+                      {selectedGolfer.payment_notes && (
+                        <div className="mt-2">
+                          <span className="text-green-600 block mb-1">Notes:</span>
+                          <p className="text-green-800 bg-green-100/50 p-2 rounded text-xs">{selectedGolfer.payment_notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

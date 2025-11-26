@@ -20,7 +20,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Users, GripVertical, Trash2, RefreshCw, Plus, CheckCircle, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Users, GripVertical, Trash2, RefreshCw, Plus, CheckCircle, ChevronDown, ChevronUp, X, UserPlus, Check } from 'lucide-react';
 import { api, Golfer, Group } from '../services/api';
 
 interface DraggableGolferProps {
@@ -115,6 +115,9 @@ export const GroupManagementPage: React.FC = () => {
   const [overGroupId, setOverGroupId] = useState<number | null>(null);
   const [newGroupId, setNewGroupId] = useState<number | null>(null);
   const [showUnassigned, setShowUnassigned] = useState(false);
+  const [bulkAddGroupId, setBulkAddGroupId] = useState<number | null>(null);
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<number[]>([]);
+  const [isAddingBulk, setIsAddingBulk] = useState(false);
   
   const groupsContainerRef = useRef<HTMLDivElement>(null);
   const newGroupRef = useRef<HTMLDivElement>(null);
@@ -336,6 +339,57 @@ export const GroupManagementPage: React.FC = () => {
       await fetchData(false);
     }
   };
+
+  // Bulk add players to a group
+  const openBulkAddModal = (groupId: number) => {
+    setBulkAddGroupId(groupId);
+    setSelectedPlayerIds([]);
+  };
+
+  const closeBulkAddModal = () => {
+    setBulkAddGroupId(null);
+    setSelectedPlayerIds([]);
+  };
+
+  const togglePlayerSelection = (playerId: number) => {
+    setSelectedPlayerIds(prev => 
+      prev.includes(playerId) 
+        ? prev.filter(id => id !== playerId)
+        : [...prev, playerId]
+    );
+  };
+
+  const handleBulkAdd = async () => {
+    if (!bulkAddGroupId || selectedPlayerIds.length === 0) return;
+    
+    const group = groups.find(g => g.id === bulkAddGroupId);
+    if (!group) return;
+    
+    const spotsAvailable = 4 - (group.golfers?.length || 0);
+    const playersToAdd = selectedPlayerIds.slice(0, spotsAvailable);
+    
+    setIsAddingBulk(true);
+    try {
+      // Add players one by one
+      for (const playerId of playersToAdd) {
+        await api.addGolferToGroup(bulkAddGroupId, playerId);
+      }
+      
+      await fetchData(false);
+      setSuccessMessage(`Added ${playersToAdd.length} player${playersToAdd.length !== 1 ? 's' : ''} to Group ${group.group_number}`);
+      closeBulkAddModal();
+    } catch (err) {
+      console.error('Error bulk adding players:', err);
+      setError(err instanceof Error ? err.message : 'Failed to add players');
+      await fetchData(false);
+    } finally {
+      setIsAddingBulk(false);
+    }
+  };
+
+  // Get the group for bulk add modal
+  const bulkAddGroup = bulkAddGroupId ? groups.find(g => g.id === bulkAddGroupId) : null;
+  const spotsAvailable = bulkAddGroup ? 4 - (bulkAddGroup.golfers?.length || 0) : 0;
 
   const activeGolfer = activeId 
     ? [...unassigned, ...groups.flatMap(g => g.golfers || [])].find(g => g.id.toString() === activeId) 
@@ -596,23 +650,32 @@ export const GroupManagementPage: React.FC = () => {
                                   : 'Drag players from the left to add them'}
                               </p>
                               {unassigned.length > 0 && !activeId && (
-                                <select
-                                  onChange={(e) => {
-                                    if (e.target.value) {
-                                      addToGroup(group.id, parseInt(e.target.value));
-                                      e.target.value = '';
-                                    }
-                                  }}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-                                  defaultValue=""
-                                >
-                                  <option value="">Add player...</option>
-                                  {unassigned.map(golfer => (
-                                    <option key={golfer.id} value={golfer.id}>
-                                      {golfer.name}
-                                    </option>
-                                  ))}
-                                </select>
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                  <select
+                                    onChange={(e) => {
+                                      if (e.target.value) {
+                                        addToGroup(group.id, parseInt(e.target.value));
+                                        e.target.value = '';
+                                      }
+                                    }}
+                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                                    defaultValue=""
+                                  >
+                                    <option value="">Add one player...</option>
+                                    {unassigned.map(golfer => (
+                                      <option key={golfer.id} value={golfer.id}>
+                                        {golfer.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    onClick={() => openBulkAddModal(group.id)}
+                                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-900 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors"
+                                  >
+                                    <UserPlus size={16} />
+                                    <span>Add Multiple</span>
+                                  </button>
+                                </div>
                               )}
                             </DroppableGroupZone>
                           )}
@@ -635,6 +698,114 @@ export const GroupManagementPage: React.FC = () => {
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      {/* Bulk Add Modal */}
+      {bulkAddGroupId && bulkAddGroup && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/50"
+            onClick={closeBulkAddModal}
+          />
+          
+          {/* Modal */}
+          <div className="relative bg-white w-full sm:w-[28rem] sm:max-w-[90vw] max-h-[65vh] sm:max-h-[80vh] mb-[4.5rem] sm:mb-0 rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col animate-slide-up sm:animate-fade-in">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  Add Players to Group {bulkAddGroup.group_number}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {spotsAvailable} spot{spotsAvailable !== 1 ? 's' : ''} available
+                  {selectedPlayerIds.length > 0 && (
+                    <span className="text-blue-600 font-medium">
+                      {' '}· {Math.min(selectedPlayerIds.length, spotsAvailable)} selected
+                    </span>
+                  )}
+                </p>
+              </div>
+              <button
+                onClick={closeBulkAddModal}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            {/* Player List */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {unassigned.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No unassigned players available
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {unassigned.map((player) => {
+                    const isSelected = selectedPlayerIds.includes(player.id);
+                    const isDisabled = !isSelected && selectedPlayerIds.length >= spotsAvailable;
+                    
+                    return (
+                      <button
+                        key={player.id}
+                        onClick={() => !isDisabled && togglePlayerSelection(player.id)}
+                        disabled={isDisabled}
+                        className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all text-left ${
+                          isSelected
+                            ? 'border-blue-500 bg-blue-50'
+                            : isDisabled
+                            ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed'
+                            : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${
+                          isSelected ? 'bg-blue-500' : 'border-2 border-gray-300'
+                        }`}>
+                          {isSelected && <Check size={16} className="text-white" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 truncate">{player.name}</p>
+                          <p className="text-xs text-gray-500 truncate">{player.email}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            
+            {/* Footer */}
+            <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={closeBulkAddModal}
+                  className="flex-1"
+                  disabled={isAddingBulk}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleBulkAdd}
+                  className="flex-1"
+                  disabled={selectedPlayerIds.length === 0 || isAddingBulk}
+                >
+                  {isAddingBulk ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin mr-2" />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      Add {Math.min(selectedPlayerIds.length, spotsAvailable)} Player{Math.min(selectedPlayerIds.length, spotsAvailable) !== 1 ? 's' : ''}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 };

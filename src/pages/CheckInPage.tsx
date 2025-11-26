@@ -98,6 +98,30 @@ const PlayerDetailPanel: React.FC<{
             <p className="text-sm text-green-700">
               {golfer.payment_type === 'stripe' ? 'Paid online via Stripe' : 'Payment has been recorded'}
             </p>
+            
+            {/* Payment Details */}
+            {(golfer.payment_method || golfer.receipt_number || golfer.payment_notes) && (
+              <div className="mt-3 pt-3 border-t border-green-200 space-y-1.5 text-sm">
+                {golfer.payment_method && (
+                  <div className="flex justify-between">
+                    <span className="text-green-600">Method:</span>
+                    <span className="text-green-800 font-medium capitalize">{golfer.payment_method}</span>
+                  </div>
+                )}
+                {golfer.receipt_number && (
+                  <div className="flex justify-between">
+                    <span className="text-green-600">Receipt #:</span>
+                    <span className="text-green-800 font-medium">{golfer.receipt_number}</span>
+                  </div>
+                )}
+                {golfer.payment_notes && (
+                  <div className="mt-2">
+                    <span className="text-green-600 block mb-1">Notes:</span>
+                    <p className="text-green-800 bg-green-100/50 p-2 rounded text-xs">{golfer.payment_notes}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <Button
