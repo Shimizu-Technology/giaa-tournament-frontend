@@ -257,11 +257,32 @@ export const LandingPage: React.FC = () => {
 
         {/* Contact Footer */}
         <div className="max-w-2xl mx-auto text-center mt-8 md:mt-10 px-4">
-          <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-5 py-3 shadow-lg shadow-blue-900/5">
+          {/* Desktop: Single row pill */}
+          <div className="hidden sm:inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-5 py-3 shadow-lg shadow-blue-900/5">
             <Phone size={16} className="text-[#1e3a5f]" />
             <span className="text-sm text-gray-600">For more information:</span>
             <span className="font-bold text-[#1e3a5f]">Peter Torres</span>
-            <span className="text-[#c9a227] font-semibold">671.689.8677</span>
+            <a href="tel:+16716898677" className="text-[#c9a227] font-semibold hover:underline">
+              671.689.8677
+            </a>
+          </div>
+          
+          {/* Mobile: Styled like other cards */}
+          <div className="sm:hidden bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl p-4 border border-blue-100 shadow-lg shadow-blue-900/5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 bg-[#1e3a5f] rounded-lg">
+                <Phone className="text-white" size={18} />
+              </div>
+              <h4 className="font-bold text-[#1e3a5f] text-sm">Contact</h4>
+            </div>
+            <p className="text-gray-900 font-semibold text-base mb-1">Peter Torres</p>
+            <a 
+              href="tel:+16716898677" 
+              className="inline-flex items-center gap-2 text-[#c9a227] font-semibold text-lg hover:underline"
+            >
+              <span>Call</span>
+              <span>671.689.8677</span>
+            </a>
           </div>
         </div>
 
