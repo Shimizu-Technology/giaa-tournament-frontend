@@ -195,13 +195,20 @@ export const RegistrationPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-6 sm:py-12">
-      <div className="container mx-auto px-4 max-w-3xl">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 relative overflow-hidden py-6 sm:py-12">
+      {/* Subtle pattern overlay */}
+      <div 
+        className="absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23166534' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        }}
+      />
+      <div className="relative z-10 container mx-auto px-4 max-w-3xl">
         <div className="text-center mb-6 sm:mb-8">
           <div className="flex justify-center items-center mb-3 sm:mb-4">
-            <Trophy className="text-blue-900" size={40} />
+            <Trophy className="text-[#1e3a5f]" size={40} />
           </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-900 mb-1 sm:mb-2">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#1e3a5f] mb-1 sm:mb-2">
             Tournament Registration
           </h1>
           <p className="text-sm sm:text-base text-gray-600">
@@ -217,7 +224,7 @@ export const RegistrationPage: React.FC = () => {
                   <div
                     className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base ${
                       step >= stepNumber
-                        ? 'bg-blue-900 text-white'
+                        ? 'bg-[#1e3a5f] text-white'
                         : 'bg-gray-300 text-gray-600'
                     }`}
                   >
@@ -233,7 +240,7 @@ export const RegistrationPage: React.FC = () => {
                 {stepNumber < 4 && (
                   <div
                     className={`flex-1 h-0.5 sm:h-1 mx-1 sm:mx-2 ${
-                      step > stepNumber ? 'bg-blue-900' : 'bg-gray-300'
+                      step > stepNumber ? 'bg-[#1e3a5f]' : 'bg-gray-300'
                     }`}
                   />
                 )}
@@ -280,7 +287,7 @@ export const RegistrationPage: React.FC = () => {
                       placeholder="(671) 123-4567"
                       value={formData.phone}
                       onChange={handleChange}
-                      className={`flex-1 px-4 py-2 border rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-900 ${
+                      className={`flex-1 px-4 py-2 border rounded-r-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a5f] ${
                         errors.phone ? 'border-red-500' : 'border-gray-300'
                       }`}
                     />
@@ -327,7 +334,7 @@ export const RegistrationPage: React.FC = () => {
                     name="waiverAccepted"
                     checked={formData.waiverAccepted}
                     onChange={handleChange}
-                    className="mt-1 w-5 h-5 text-blue-900 border-gray-300 rounded focus:ring-blue-900"
+                    className="mt-1 w-5 h-5 text-[#1e3a5f] border-gray-300 rounded focus:ring-[#1e3a5f]"
                   />
                   <label htmlFor="waiverAccepted" className="text-sm text-gray-700 font-medium">
                     I have read and agree to the Liability Waiver. I understand the risks
@@ -355,14 +362,14 @@ export const RegistrationPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <label className={`flex items-start gap-3 p-3 sm:p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${formData.paymentOption === 'pay-now' ? 'border-blue-900 bg-blue-50' : 'border-gray-200'}`}>
+                  <label className={`flex items-start gap-3 p-3 sm:p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${formData.paymentOption === 'pay-now' ? 'border-[#1e3a5f] bg-blue-50' : 'border-gray-200'}`}>
                     <input
                       type="radio"
                       name="paymentOption"
                       value="pay-now"
                       checked={formData.paymentOption === 'pay-now'}
                       onChange={handleChange}
-                      className="mt-0.5 w-4 h-4 sm:w-5 sm:h-5 text-blue-900 flex-shrink-0"
+                      className="mt-0.5 w-4 h-4 sm:w-5 sm:h-5 text-[#1e3a5f] flex-shrink-0"
                     />
                     <div>
                       <p className="font-semibold text-gray-900 text-sm sm:text-base">Pay Now (Stripe)</p>
@@ -372,14 +379,14 @@ export const RegistrationPage: React.FC = () => {
                     </div>
                   </label>
 
-                  <label className={`flex items-start gap-3 p-3 sm:p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${formData.paymentOption === 'pay-on-day' ? 'border-blue-900 bg-blue-50' : 'border-gray-200'}`}>
+                  <label className={`flex items-start gap-3 p-3 sm:p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${formData.paymentOption === 'pay-on-day' ? 'border-[#1e3a5f] bg-blue-50' : 'border-gray-200'}`}>
                     <input
                       type="radio"
                       name="paymentOption"
                       value="pay-on-day"
                       checked={formData.paymentOption === 'pay-on-day'}
                       onChange={handleChange}
-                      className="mt-0.5 w-4 h-4 sm:w-5 sm:h-5 text-blue-900 flex-shrink-0"
+                      className="mt-0.5 w-4 h-4 sm:w-5 sm:h-5 text-[#1e3a5f] flex-shrink-0"
                     />
                     <div>
                       <p className="font-semibold text-gray-900 text-sm sm:text-base">Pay on Day of Tournament</p>

@@ -14,13 +14,20 @@ export const RegistrationSuccessPage: React.FC = () => {
   const isWaitlist = registration?.registration_status === 'waitlist';
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-6 sm:py-12">
-      <div className="container mx-auto px-4 max-w-2xl">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 relative overflow-hidden py-6 sm:py-12">
+      {/* Subtle pattern overlay */}
+      <div 
+        className="absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23166534' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        }}
+      />
+      <div className="relative z-10 container mx-auto px-4 max-w-2xl">
         <div className="text-center mb-6 sm:mb-8">
           <div className="flex justify-center items-center mb-3 sm:mb-4">
-            <Trophy className="text-blue-900" size={40} />
+            <Trophy className="text-[#1e3a5f]" size={40} />
           </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-900">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#1e3a5f]">
             Registration {isWaitlist ? 'Received' : 'Confirmed'}!
           </h1>
         </div>
@@ -90,7 +97,7 @@ export const RegistrationSuccessPage: React.FC = () => {
           )}
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
-            <h3 className="font-semibold text-blue-900 text-sm sm:text-base mb-2">What's Next?</h3>
+            <h3 className="font-semibold text-[#1e3a5f] text-sm sm:text-base mb-2">What's Next?</h3>
             <ul className="text-xs sm:text-sm text-gray-700 space-y-1 list-disc list-inside">
               {isWaitlist ? (
                 <>
