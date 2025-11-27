@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { UserButton, useUser } from '@clerk/clerk-react';
 import { Trophy, LayoutDashboard, Users, ClipboardCheck, Settings, Home, Menu, X } from 'lucide-react';
+import { api } from '../services/api';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -12,6 +13,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const location = useLocation();
   const { user } = useUser();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [tournamentName, setTournamentName] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.getRegistrationStatus()
+      .then(status => setTournamentName(status.tournament_name))
+      .catch(() => {});
+  }, []);
 
   const menuItems = [
     { path: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -38,7 +46,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               <Trophy size={28} className="lg:w-8 lg:h-8" />
               <div className="text-left">
                 <h1 className="font-bold text-base lg:text-lg">Tournament Admin</h1>
-                <p className="text-[10px] lg:text-xs text-blue-200 hidden sm:block">Edward A.P. Muna II Memorial</p>
+                <p className="text-[10px] lg:text-xs text-blue-200 hidden sm:block">{tournamentName?.replace(' Golf Tournament', '') || 'Edward A.P. Muna II Memorial'}</p>
               </div>
             </button>
             

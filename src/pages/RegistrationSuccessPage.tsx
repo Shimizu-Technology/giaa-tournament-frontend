@@ -140,12 +140,12 @@ export const RegistrationSuccessPage: React.FC = () => {
                 <>
                   <li>We'll email you if a spot becomes available</li>
                   <li>Keep an eye on your inbox for updates</li>
-                  <li>You can contact us at 671.689.8677 for your position on the waitlist</li>
+                  <li>You can contact us at {registrationStatus?.contact_phone || '671.689.8677'} for your position on the waitlist</li>
                 </>
               ) : (
                 <>
                   <li>Check your email for confirmation and additional details</li>
-                  <li>Mark your calendar: January 9, 2026</li>
+                  <li>Mark your calendar: {registrationStatus?.event_date || 'January 9, 2026'}</li>
                   {(paymentType === 'pay-on-day' || registration?.payment_type === 'pay_on_day') && (
                     <li>Remember to bring payment (${entryFee.toFixed(2)}) on the day of the tournament</li>
                   )}
@@ -163,7 +163,7 @@ export const RegistrationSuccessPage: React.FC = () => {
         </Card>
 
         <div className="text-center mt-6 sm:mt-8 text-gray-600">
-          <p className="text-sm">Questions? Contact Peter Torres at 671.689.8677</p>
+          <p className="text-sm">Questions? Contact {registrationStatus?.contact_name || 'Peter Torres'} at {registrationStatus?.contact_phone || '671.689.8677'}</p>
         </div>
       </div>
     </div>

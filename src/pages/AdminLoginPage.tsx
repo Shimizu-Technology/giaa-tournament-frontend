@@ -1,11 +1,20 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SignIn, useAuth } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
 import { Trophy } from 'lucide-react';
+import { api } from '../services/api';
 
 export const AdminLoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { isSignedIn, isLoaded } = useAuth();
+  const [tournamentName, setTournamentName] = useState<string | null>(null);
+
+  // Fetch tournament name
+  useEffect(() => {
+    api.getRegistrationStatus()
+      .then(status => setTournamentName(status.tournament_name))
+      .catch(() => {});
+  }, []);
 
   // Redirect to dashboard if already signed in
   useEffect(() => {
@@ -46,7 +55,7 @@ export const AdminLoginPage: React.FC = () => {
             Admin Portal
           </h1>
           <p className="text-gray-600">
-            Edward A.P. Muna II Memorial Golf Tournament
+            {tournamentName || 'Edward A.P. Muna II Memorial Golf Tournament'}
           </p>
         </div>
 

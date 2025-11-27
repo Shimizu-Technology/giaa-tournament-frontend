@@ -224,7 +224,7 @@ export const RegistrationPage: React.FC = () => {
                 Registration Closed
               </h1>
               <p className="text-gray-600">
-                Registration for the Edward A.P. Muna II Memorial Golf Tournament is currently closed.
+                Registration for the {registrationStatus?.tournament_name || 'golf tournament'} is currently closed.
               </p>
             </div>
             <Button
@@ -258,7 +258,7 @@ export const RegistrationPage: React.FC = () => {
             Tournament Registration
           </h1>
           <p className="text-sm sm:text-base text-gray-600">
-            Edward A.P. Muna II Memorial Golf Tournament
+            {registrationStatus?.tournament_name || 'Edward A.P. Muna II Memorial Golf Tournament'}
           </p>
         </div>
 
@@ -438,7 +438,7 @@ export const RegistrationPage: React.FC = () => {
                     <div>
                       <p className="font-semibold text-gray-900 text-sm sm:text-base">Pay on Day of Tournament</p>
                       <p className="text-xs sm:text-sm text-gray-600">
-                        Pay by cash, check (payable to GIAAEO), or credit card at check-in.
+                        Pay by cash, check (payable to {registrationStatus?.checks_payable_to || 'GIAAEO'}), or credit card at check-in.
                       </p>
                     </div>
                   </label>

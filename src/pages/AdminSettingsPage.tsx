@@ -15,6 +15,21 @@ export const AdminSettingsPage: React.FC = () => {
     registration_open: true,
     admin_email: '',
     max_capacity: 160,
+    // Tournament configuration
+    tournament_year: '2026',
+    tournament_edition: '5th',
+    tournament_title: 'AIRPORT WEEK',
+    tournament_name: 'Edward A.P. Muna II Memorial Golf Tournament',
+    event_date: 'January 9, 2026',
+    registration_time: '11:00 am',
+    start_time: '12:30 pm',
+    location_name: 'Country Club of the Pacific',
+    location_address: 'Windward Hills, Guam',
+    format_name: 'Individual Callaway',
+    fee_includes: 'Green Fee, Ditty Bag, Drinks & Food',
+    checks_payable_to: 'GIAAEO',
+    contact_name: 'Peter Torres',
+    contact_phone: '671.689.8677',
   });
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [currentAdmin, setCurrentAdmin] = useState<Admin | null>(null);
@@ -44,6 +59,21 @@ export const AdminSettingsPage: React.FC = () => {
         registration_open: settingsData.registration_open ?? true,
         admin_email: settingsData.admin_email || '',
         max_capacity: settingsData.max_capacity || 160,
+        // Tournament configuration
+        tournament_year: settingsData.tournament_year || '2026',
+        tournament_edition: settingsData.tournament_edition || '5th',
+        tournament_title: settingsData.tournament_title || 'AIRPORT WEEK',
+        tournament_name: settingsData.tournament_name || 'Edward A.P. Muna II Memorial Golf Tournament',
+        event_date: settingsData.event_date || 'January 9, 2026',
+        registration_time: settingsData.registration_time || '11:00 am',
+        start_time: settingsData.start_time || '12:30 pm',
+        location_name: settingsData.location_name || 'Country Club of the Pacific',
+        location_address: settingsData.location_address || 'Windward Hills, Guam',
+        format_name: settingsData.format_name || 'Individual Callaway',
+        fee_includes: settingsData.fee_includes || 'Green Fee, Ditty Bag, Drinks & Food',
+        checks_payable_to: settingsData.checks_payable_to || 'GIAAEO',
+        contact_name: settingsData.contact_name || 'Peter Torres',
+        contact_phone: settingsData.contact_phone || '671.689.8677',
       });
       setAdmins(adminsData);
       setCurrentAdmin(meData);
@@ -183,6 +213,119 @@ export const AdminSettingsPage: React.FC = () => {
               <p className={`text-sm font-medium ${settings.registration_open ? 'text-green-800' : 'text-red-800'}`}>
                 {settings.registration_open ? '✓ Registration is OPEN' : '✕ Registration is CLOSED'}
               </p>
+            </div>
+          </Card>
+
+          {/* Tournament Details */}
+          <Card className="p-4 lg:p-6">
+            <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-2 lg:mb-4">
+              Tournament Details
+            </h2>
+            <p className="text-xs lg:text-sm text-gray-600 mb-4">
+              Configure the tournament information displayed on the home page.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="Year"
+                name="tournament_year"
+                value={settings.tournament_year || ''}
+                onChange={handleChange}
+                placeholder="2026"
+              />
+              <Input
+                label="Edition (e.g., 5th, 6th)"
+                name="tournament_edition"
+                value={settings.tournament_edition || ''}
+                onChange={handleChange}
+                placeholder="5th"
+              />
+              <Input
+                label="Title (e.g., AIRPORT WEEK)"
+                name="tournament_title"
+                value={settings.tournament_title || ''}
+                onChange={handleChange}
+                placeholder="AIRPORT WEEK"
+              />
+              <Input
+                label="Tournament Name"
+                name="tournament_name"
+                value={settings.tournament_name || ''}
+                onChange={handleChange}
+                placeholder="Edward A.P. Muna II Memorial Golf Tournament"
+              />
+              <Input
+                label="Event Date"
+                name="event_date"
+                value={settings.event_date || ''}
+                onChange={handleChange}
+                placeholder="January 9, 2026"
+              />
+              <Input
+                label="Registration Time"
+                name="registration_time"
+                value={settings.registration_time || ''}
+                onChange={handleChange}
+                placeholder="11:00 am"
+              />
+              <Input
+                label="Start Time (Shotgun)"
+                name="start_time"
+                value={settings.start_time || ''}
+                onChange={handleChange}
+                placeholder="12:30 pm"
+              />
+              <Input
+                label="Format Name"
+                name="format_name"
+                value={settings.format_name || ''}
+                onChange={handleChange}
+                placeholder="Individual Callaway"
+              />
+              <Input
+                label="Location Name"
+                name="location_name"
+                value={settings.location_name || ''}
+                onChange={handleChange}
+                placeholder="Country Club of the Pacific"
+              />
+              <Input
+                label="Location Address"
+                name="location_address"
+                value={settings.location_address || ''}
+                onChange={handleChange}
+                placeholder="Windward Hills, Guam"
+              />
+              <div className="md:col-span-2">
+                <Input
+                  label="Fee Includes (comma-separated)"
+                  name="fee_includes"
+                  value={settings.fee_includes || ''}
+                  onChange={handleChange}
+                  placeholder="Green Fee, Ditty Bag, Drinks & Food"
+                />
+              </div>
+              <Input
+                label="Checks Payable To"
+                name="checks_payable_to"
+                value={settings.checks_payable_to || ''}
+                onChange={handleChange}
+                placeholder="GIAAEO"
+              />
+              <Input
+                label="Contact Name"
+                name="contact_name"
+                value={settings.contact_name || ''}
+                onChange={handleChange}
+                placeholder="Peter Torres"
+              />
+              <Input
+                label="Contact Phone"
+                name="contact_phone"
+                value={settings.contact_phone || ''}
+                onChange={handleChange}
+                placeholder="671.689.8677"
+              />
             </div>
           </Card>
 

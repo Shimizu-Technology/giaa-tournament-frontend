@@ -84,15 +84,15 @@ export const LandingPage: React.FC = () => {
         {/* Main Title Section */}
         <div className="text-center mb-6 md:mb-10">
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-[#1e3a5f] mb-3 md:mb-4 tracking-wide">
-            2026 AIRPORT WEEK
+            {registrationStatus?.tournament_year || '2026'} {registrationStatus?.tournament_title || 'AIRPORT WEEK'}
           </h1>
           
-          {/* Elegant script for "5th Annual" */}
+          {/* Elegant script for "Xth Annual" */}
           <p 
             className="text-2xl sm:text-3xl md:text-4xl text-[#1e3a5f]/80 mb-2 md:mb-3"
             style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontStyle: 'italic' }}
           >
-            5th Annual
+            {registrationStatus?.tournament_edition || '5th'} Annual
           </p>
           
           {/* Tournament name with golfer silhouette */}
@@ -108,7 +108,7 @@ export const LandingPage: React.FC = () => {
             </div>
             
             <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#1e3a5f] tracking-tight">
-              EDWARD A.P. MUNA II
+              {(registrationStatus?.tournament_name || 'Edward A.P. Muna II Memorial Golf Tournament').replace(' Memorial Golf Tournament', '').toUpperCase()}
             </h2>
           </div>
           
@@ -137,15 +137,15 @@ export const LandingPage: React.FC = () => {
                     </div>
                     <h4 className="font-bold text-[#1e3a5f] text-sm md:text-base">Date</h4>
                   </div>
-                  <p className="text-gray-900 font-semibold text-base md:text-lg">January 9, 2026</p>
+                  <p className="text-gray-900 font-semibold text-base md:text-lg">{registrationStatus?.event_date || 'January 9, 2026'}</p>
                   <div className="mt-2 space-y-1">
                     <p className="text-xs md:text-sm text-gray-600 flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-[#c9a227]"></span>
-                      Registration: 11:00 am
+                      Registration: {registrationStatus?.registration_time || '11:00 am'}
                     </p>
                     <p className="text-xs md:text-sm text-gray-600 flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                      Shotgun Start: 12:30 pm
+                      Shotgun Start: {registrationStatus?.start_time || '12:30 pm'}
                     </p>
                   </div>
                 </div>
@@ -157,8 +157,8 @@ export const LandingPage: React.FC = () => {
                     </div>
                     <h4 className="font-bold text-[#1e3a5f] text-sm md:text-base">Location</h4>
                   </div>
-                  <p className="text-gray-900 font-semibold text-base md:text-lg">Country Club of the Pacific</p>
-                  <p className="text-xs md:text-sm text-gray-600 mt-2">Windward Hills, Guam</p>
+                  <p className="text-gray-900 font-semibold text-base md:text-lg">{registrationStatus?.location_name || 'Country Club of the Pacific'}</p>
+                  <p className="text-xs md:text-sm text-gray-600 mt-2">{registrationStatus?.location_address || 'Windward Hills, Guam'}</p>
                 </div>
 
                 <div className={`rounded-xl p-4 md:p-5 border ${
@@ -180,7 +180,7 @@ export const LandingPage: React.FC = () => {
                     </div>
                     <h4 className="font-bold text-[#1e3a5f] text-sm md:text-base">Format</h4>
                   </div>
-                  <p className="text-gray-900 font-semibold text-base md:text-lg">Individual Callaway</p>
+                  <p className="text-gray-900 font-semibold text-base md:text-lg">{registrationStatus?.format_name || 'Individual Callaway'}</p>
                   <p className="text-xs md:text-sm text-gray-600 mt-2">
                     Limited to {registrationStatus?.max_capacity ?? '...'} Players
                   </p>
@@ -215,19 +215,15 @@ export const LandingPage: React.FC = () => {
                       Entry Fee: <span className="text-[#059669]">${registrationStatus?.entry_fee_dollars?.toFixed(2) ?? '125.00'}</span>
                     </h3>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
-                      <span className="flex items-center gap-1">
-                        <span className="text-[#059669]">✓</span> Green Fee
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="text-[#059669]">✓</span> Ditty Bag
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="text-[#059669]">✓</span> Drinks & Food
-                      </span>
+                      {(registrationStatus?.fee_includes || 'Green Fee, Ditty Bag, Drinks & Food').split(',').map((item, index) => (
+                        <span key={index} className="flex items-center gap-1">
+                          <span className="text-[#059669]">✓</span> {item.trim()}
+                        </span>
+                      ))}
                     </div>
                   </div>
                   <div className="text-xs md:text-sm text-gray-600 md:text-right">
-                    <p>Make checks payable to: <strong>GIAAEO</strong></p>
+                    <p>Make checks payable to: <strong>{registrationStatus?.checks_payable_to || 'GIAAEO'}</strong></p>
                     <p className="text-gray-500 mt-1">Prize winners contacted post tournament</p>
                   </div>
                 </div>
@@ -280,9 +276,9 @@ export const LandingPage: React.FC = () => {
           <div className="hidden sm:inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-5 py-3 shadow-lg shadow-blue-900/5">
             <Phone size={16} className="text-[#1e3a5f]" />
             <span className="text-sm text-gray-600">For more information:</span>
-            <span className="font-bold text-[#1e3a5f]">Peter Torres</span>
-            <a href="tel:+16716898677" className="text-[#c9a227] font-semibold hover:underline">
-              671.689.8677
+            <span className="font-bold text-[#1e3a5f]">{registrationStatus?.contact_name || 'Peter Torres'}</span>
+            <a href={`tel:+1${(registrationStatus?.contact_phone || '671.689.8677').replace(/\D/g, '')}`} className="text-[#c9a227] font-semibold hover:underline">
+              {registrationStatus?.contact_phone || '671.689.8677'}
             </a>
           </div>
           
@@ -294,13 +290,13 @@ export const LandingPage: React.FC = () => {
               </div>
               <h4 className="font-bold text-[#1e3a5f] text-sm">Contact</h4>
             </div>
-            <p className="text-gray-900 font-semibold text-base mb-1">Peter Torres</p>
+            <p className="text-gray-900 font-semibold text-base mb-1">{registrationStatus?.contact_name || 'Peter Torres'}</p>
             <a 
-              href="tel:+16716898677" 
+              href={`tel:+1${(registrationStatus?.contact_phone || '671.689.8677').replace(/\D/g, '')}`}
               className="inline-flex items-center gap-2 text-[#c9a227] font-semibold text-lg hover:underline"
             >
               <span>Call</span>
-              <span>671.689.8677</span>
+              <span>{registrationStatus?.contact_phone || '671.689.8677'}</span>
             </a>
           </div>
         </div>

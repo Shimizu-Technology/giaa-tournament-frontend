@@ -8,6 +8,7 @@ interface AddGolferModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  tournamentName?: string;
 }
 
 interface FormData {
@@ -26,6 +27,7 @@ export const AddGolferModal: React.FC<AddGolferModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  tournamentName = 'Edward A.P. Muna II Memorial Golf Tournament',
 }) => {
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -376,8 +378,7 @@ export const AddGolferModal: React.FC<AddGolferModalProps> = ({
                 <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 max-h-32 overflow-y-auto border border-gray-200">
                   <p className="font-semibold mb-2">WAIVER OF LIABILITY AND ASSUMPTION OF RISK</p>
                   <p className="mb-2">
-                    In consideration of being permitted to participate in the Edward A.P. Muna II
-                    Memorial Golf Tournament, I hereby waive, release, and discharge any and all
+                    In consideration of being permitted to participate in the {tournamentName}, I hereby waive, release, and discharge any and all
                     claims for damages for death, personal injury, or property damage which I may
                     have, or which may hereafter accrue to me, against the Guam International
                     Airport Authority, its officers, employees, and agents.

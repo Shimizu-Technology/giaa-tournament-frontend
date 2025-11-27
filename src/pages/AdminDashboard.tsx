@@ -971,6 +971,7 @@ export const AdminDashboard: React.FC = () => {
       <AddGolferModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
+        tournamentName={stats?.tournament_name}
         onSuccess={fetchData}
       />
 

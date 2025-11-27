@@ -65,6 +65,21 @@ export interface Settings {
   at_capacity: boolean;
   stripe_configured: boolean;
   test_mode: boolean;
+  // Tournament configuration
+  tournament_year: string | null;
+  tournament_edition: string | null;
+  tournament_title: string | null;
+  tournament_name: string | null;
+  event_date: string | null;
+  registration_time: string | null;
+  start_time: string | null;
+  location_name: string | null;
+  location_address: string | null;
+  format_name: string | null;
+  fee_includes: string | null;
+  checks_payable_to: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
 }
 
 export interface CheckoutSession {
@@ -89,6 +104,21 @@ export interface RegistrationStatus {
   registration_open: boolean;
   entry_fee_cents: number;
   entry_fee_dollars: number;
+  // Tournament configuration
+  tournament_year: string;
+  tournament_edition: string;
+  tournament_title: string;
+  tournament_name: string;
+  event_date: string;
+  registration_time: string;
+  start_time: string;
+  location_name: string;
+  location_address: string;
+  format_name: string;
+  fee_includes: string;
+  checks_payable_to: string;
+  contact_name: string;
+  contact_phone: string;
 }
 
 export interface GolferStats {
@@ -106,6 +136,7 @@ export interface GolferStats {
   at_capacity: boolean;
   entry_fee_cents: number;
   entry_fee_dollars: number;
+  tournament_name: string;
 }
 
 export interface PaginationMeta {
