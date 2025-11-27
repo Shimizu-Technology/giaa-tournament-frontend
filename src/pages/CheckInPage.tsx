@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { Card, Button, Input, Select } from '../components/ui';
-import { Search, CheckCircle, DollarSign, User, RefreshCw, X, UserCheck, CreditCard, Users } from 'lucide-react';
+import { Search, CheckCircle, DollarSign, User, RefreshCw, X, UserCheck, CreditCard, Users, Clock, ArrowUpCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { api, Golfer, GolferStats, ActivityLog } from '../services/api';
 
 interface PaymentInfo {
@@ -10,7 +11,7 @@ interface PaymentInfo {
   notes: string;
 }
 
-type CheckInQueue = 'paid' | 'unpaid' | 'checked-in' | 'all';
+type CheckInQueue = 'paid' | 'unpaid' | 'checked-in' | 'all' | 'waitlist';
 
 // Player detail content - extracted to avoid re-render issues
 const PlayerDetailPanel: React.FC<{
@@ -25,7 +26,12 @@ const PlayerDetailPanel: React.FC<{
   entryFee?: number;
   activityLogs?: ActivityLog[];
   loadingActivityLogs?: boolean;
-}> = ({ golfer, paymentInfo, setPaymentInfo, isProcessing, onCheckIn, onRecordPayment, onClose, showCloseButton = true, entryFee = 125, activityLogs = [], loadingActivityLogs = false }) => {
+  // Waitlist props
+  isPromoting?: boolean;
+  onPromote?: () => void;
+  onPromotePayCheckIn?: () => void;
+  capacityRemaining?: number;
+}> = ({ golfer, paymentInfo, setPaymentInfo, isProcessing, onCheckIn, onRecordPayment, onClose, showCloseButton = true, entryFee = 125, activityLogs = [], loadingActivityLogs = false, isPromoting = false, onPromote, onPromotePayCheckIn, capacityRemaining = 0 }) => {
   return (
     <div className="space-y-4 lg:space-y-6">
       <div className="flex items-center gap-3 lg:gap-4">
@@ -89,6 +95,103 @@ const PlayerDetailPanel: React.FC<{
           <p className="text-lg font-bold text-blue-600">
             Already Checked In
           </p>
+        </div>
+      ) : golfer.registration_status === 'waitlist' ? (
+        /* Waitlist Golfer UI */
+        <div className="space-y-4">
+          <div className="bg-purple-50 border-2 border-purple-300 rounded-lg p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 bg-purple-100 rounded-full">
+                <Clock className="text-purple-600" size={20} />
+              </div>
+              <div>
+                <p className="font-semibold text-purple-900">Waitlist Player</p>
+                <p className="text-sm text-purple-700">
+                  {capacityRemaining > 0 
+                    ? `${capacityRemaining} spots available - can promote now!`
+                    : 'No spots available'}
+                </p>
+              </div>
+            </div>
+
+            {capacityRemaining > 0 && onPromote && (
+              <Button
+                onClick={onPromote}
+                disabled={isPromoting}
+                className="w-full bg-purple-600 hover:bg-purple-700 mb-2"
+              >
+                {isPromoting ? (
+                  <>
+                    <RefreshCw size={18} className="mr-2 animate-spin" />
+                    Promoting...
+                  </>
+                ) : (
+                  <>
+                    <ArrowUpCircle size={18} className="mr-2" />
+                    Promote to Confirmed (Send Email)
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+
+          {/* Quick Day-Of Flow: Promote + Pay + Check-In */}
+          {capacityRemaining > 0 && onPromotePayCheckIn && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <p className="text-sm font-medium text-amber-900 mb-3">
+                Quick Check-In (Day-Of Walk-In)
+              </p>
+              <p className="text-xs text-amber-700 mb-3">
+                Promote, record payment, and check-in all at once
+              </p>
+              
+              <div className="space-y-3 mb-4">
+                <Select
+                  label="Payment Method"
+                  value={paymentInfo.method}
+                  onChange={(e) => setPaymentInfo(prev => ({ ...prev, method: e.target.value as PaymentInfo['method'] }))}
+                  options={[
+                    { value: 'cash', label: 'Cash' },
+                    { value: 'check', label: 'Check' },
+                    { value: 'credit', label: 'Credit Card' },
+                  ]}
+                />
+                
+                <Input
+                  label="Receipt # (optional)"
+                  value={paymentInfo.receiptNumber}
+                  onChange={(e) => setPaymentInfo(prev => ({ ...prev, receiptNumber: e.target.value }))}
+                  placeholder="Receipt number"
+                />
+              </div>
+              
+              <Button
+                onClick={onPromotePayCheckIn}
+                disabled={isProcessing}
+                className="w-full bg-amber-600 hover:bg-amber-700"
+              >
+                {isProcessing ? (
+                  <>
+                    <RefreshCw size={18} className="mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <UserCheck size={18} className="mr-2" />
+                    Promote + Pay ${entryFee} + Check-In
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {capacityRemaining <= 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+              <p className="text-sm text-red-700">
+                ⚠️ Tournament is at capacity. Cannot add more players until a spot opens.
+              </p>
+            </div>
+          )}
         </div>
       ) : golfer.payment_status === 'paid' ? (
         <>
@@ -267,6 +370,7 @@ export const CheckInPage: React.FC = () => {
   const [activeQueue, setActiveQueue] = useState<CheckInQueue>('paid');
   const [golferActivityLogs, setGolferActivityLogs] = useState<ActivityLog[]>([]);
   const [loadingActivityLogs, setLoadingActivityLogs] = useState(false);
+  const [isPromoting, setIsPromoting] = useState(false);
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo>({
     method: 'cash',
     receiptNumber: '',
@@ -320,15 +424,23 @@ export const CheckInPage: React.FC = () => {
 
     switch (activeQueue) {
       case 'paid':
-        filtered = filtered.filter(g => !g.checked_in && g.payment_status === 'paid');
+        // Confirmed golfers who are paid but not checked in
+        filtered = filtered.filter(g => !g.checked_in && g.payment_status === 'paid' && g.registration_status === 'confirmed');
         break;
       case 'unpaid':
-        filtered = filtered.filter(g => !g.checked_in && g.payment_status === 'unpaid');
+        // Confirmed golfers who are unpaid and not checked in
+        filtered = filtered.filter(g => !g.checked_in && g.payment_status === 'unpaid' && g.registration_status === 'confirmed');
         break;
       case 'checked-in':
         filtered = filtered.filter(g => g.checked_in);
         break;
+      case 'waitlist':
+        // Waitlist golfers only
+        filtered = filtered.filter(g => g.registration_status === 'waitlist');
+        break;
       case 'all':
+        // Exclude waitlist from "all" - they have their own tab
+        filtered = filtered.filter(g => g.registration_status === 'confirmed');
         break;
     }
 
@@ -344,6 +456,12 @@ export const CheckInPage: React.FC = () => {
 
     return filtered;
   }, [golfers, searchTerm, activeQueue]);
+
+  // Count waitlist golfers
+  const waitlistCount = useMemo(() => 
+    golfers.filter(g => g.registration_status === 'waitlist').length,
+    [golfers]
+  );
 
 
   const handleRecordPayment = async () => {
@@ -401,6 +519,72 @@ export const CheckInPage: React.FC = () => {
     }
   };
 
+  // Promote waitlist golfer to confirmed
+  const handlePromote = async () => {
+    if (!selectedGolfer) return;
+
+    try {
+      setIsPromoting(true);
+      setError(null);
+
+      const updatedGolfer = await api.promoteGolfer(selectedGolfer.id);
+      
+      toast.success(`${selectedGolfer.name} promoted to confirmed! Email sent.`);
+      
+      // Update selected golfer to show confirmed status
+      setSelectedGolfer(updatedGolfer);
+      
+      await fetchData();
+    } catch (err) {
+      console.error('Error promoting golfer:', err);
+      setError(err instanceof Error ? err.message : 'Failed to promote golfer');
+      toast.error('Failed to promote golfer');
+    } finally {
+      setIsPromoting(false);
+    }
+  };
+
+  // Promote, pay, and check-in in one flow (for day-of walk-ins)
+  const handlePromotePayCheckIn = async () => {
+    if (!selectedGolfer) return;
+
+    try {
+      setIsProcessing(true);
+      setError(null);
+
+      // Step 1: Promote to confirmed
+      await api.promoteGolfer(selectedGolfer.id);
+      
+      // Step 2: Record payment
+      await api.addPaymentDetails(selectedGolfer.id, {
+        payment_method: paymentInfo.method,
+        receipt_number: paymentInfo.receiptNumber,
+        payment_notes: paymentInfo.notes,
+      });
+      
+      // Step 3: Check in
+      await api.checkInGolfer(selectedGolfer.id);
+      
+      setSuccessMessage(`${selectedGolfer.name} promoted, paid, and checked in!`);
+      toast.success(`${selectedGolfer.name} is all set!`);
+      
+      await fetchData();
+      
+      setSelectedGolfer(null);
+      setPaymentInfo({
+        method: 'cash',
+        receiptNumber: '',
+        notes: '',
+      });
+    } catch (err) {
+      console.error('Error in promote/pay/check-in:', err);
+      setError(err instanceof Error ? err.message : 'Failed to complete the process');
+      toast.error('Something went wrong. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleClearSelection = () => {
     setSelectedGolfer(null);
     setGolferActivityLogs([]);
@@ -430,6 +614,7 @@ export const CheckInPage: React.FC = () => {
       case 'paid': return 'Paid';
       case 'unpaid': return 'Not Paid';
       case 'checked-in': return 'Checked In';
+      case 'waitlist': return 'Waitlist';
       case 'all': return 'All Players';
     }
   };
@@ -439,6 +624,7 @@ export const CheckInPage: React.FC = () => {
       case 'paid': return 'Ready for quick check-in';
       case 'unpaid': return 'Collect payment first';
       case 'checked-in': return 'Already checked in';
+      case 'waitlist': return 'Promote to add to tournament';
       case 'all': return 'All registered players';
     }
   };
@@ -467,10 +653,26 @@ export const CheckInPage: React.FC = () => {
               {counts.checkedIn} of {counts.total} checked in
             </p>
           </div>
-          <Button variant="outline" onClick={fetchData} className="text-sm lg:text-base">
-            <RefreshCw size={18} className="mr-2" />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-3">
+            {/* Capacity Indicator */}
+            {stats && (
+              <div className={`px-3 py-1.5 rounded-full text-xs font-medium ${
+                stats.at_capacity 
+                  ? 'bg-red-100 text-red-700' 
+                  : stats.capacity_remaining <= 5 
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'bg-green-100 text-green-700'
+              }`}>
+                {stats.at_capacity 
+                  ? '⚠️ At Capacity' 
+                  : `${stats.capacity_remaining} spots left`}
+              </div>
+            )}
+            <Button variant="outline" onClick={fetchData} className="text-sm lg:text-base">
+              <RefreshCw size={18} className="mr-2" />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Queue Selection - 2x2 grid on mobile */}
@@ -555,6 +757,40 @@ export const CheckInPage: React.FC = () => {
             </div>
           </button>
         </div>
+
+        {/* Waitlist Tab - Separate row for visibility */}
+        {waitlistCount > 0 && (
+          <button
+            onClick={() => setActiveQueue('waitlist')}
+            className={`w-full p-3 lg:p-4 rounded-lg border-2 transition-all touch-manipulation ${
+              activeQueue === 'waitlist' 
+                ? 'border-purple-500 ring-2 ring-purple-200 bg-purple-50' 
+                : 'border-gray-200 hover:border-purple-200 bg-white'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 lg:gap-3">
+                <div className={`p-2 lg:p-3 rounded-full ${activeQueue === 'waitlist' ? 'bg-purple-500' : 'bg-purple-100'}`}>
+                  <Clock className={activeQueue === 'waitlist' ? 'text-white' : 'text-purple-600'} size={18} />
+                </div>
+                <div className="text-left">
+                  <p className="text-[10px] lg:text-xs font-medium text-purple-700 uppercase">Waitlist</p>
+                  <p className="text-xl lg:text-2xl font-bold text-purple-600">{waitlistCount}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-500">
+                  {stats?.capacity_remaining && stats.capacity_remaining > 0 
+                    ? `${stats.capacity_remaining} spots available` 
+                    : 'No spots available'}
+                </p>
+                {stats?.capacity_remaining && stats.capacity_remaining > 0 && (
+                  <p className="text-xs text-purple-600 font-medium">Ready to promote</p>
+                )}
+              </div>
+            </div>
+          </button>
+        )}
 
         {/* Success Message */}
         {successMessage && (
@@ -687,29 +923,41 @@ export const CheckInPage: React.FC = () => {
                 entryFee={stats?.entry_fee_dollars ?? 125}
                 activityLogs={golferActivityLogs}
                 loadingActivityLogs={loadingActivityLogs}
+                isPromoting={isPromoting}
+                onPromote={handlePromote}
+                onPromotePayCheckIn={handlePromotePayCheckIn}
+                capacityRemaining={stats?.capacity_remaining ?? 0}
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-full py-16 text-center">
                 <div className={`p-6 rounded-full mb-4 ${
                   activeQueue === 'paid' ? 'bg-green-100' : 
-                  activeQueue === 'unpaid' ? 'bg-amber-100' : 'bg-gray-100'
+                  activeQueue === 'unpaid' ? 'bg-amber-100' : 
+                  activeQueue === 'waitlist' ? 'bg-purple-100' : 'bg-gray-100'
                 }`}>
                   {activeQueue === 'paid' ? (
                     <UserCheck className="text-green-500" size={48} />
                   ) : activeQueue === 'unpaid' ? (
                     <CreditCard className="text-amber-500" size={48} />
+                  ) : activeQueue === 'waitlist' ? (
+                    <Clock className="text-purple-500" size={48} />
                   ) : (
                     <User className="text-gray-400" size={48} />
                   )}
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {activeQueue === 'paid' ? 'Paid Players' : activeQueue === 'unpaid' ? 'Unpaid Players' : 'Select a Player'}
+                  {activeQueue === 'paid' ? 'Paid Players' 
+                    : activeQueue === 'unpaid' ? 'Unpaid Players' 
+                    : activeQueue === 'waitlist' ? 'Waitlist Players'
+                    : 'Select a Player'}
                 </h3>
                 <p className="text-gray-500 max-w-xs">
                   {activeQueue === 'paid' 
                     ? 'Select a player for quick check-in (payment complete)'
                     : activeQueue === 'unpaid'
                     ? 'Select a player to collect payment and check them in'
+                    : activeQueue === 'waitlist'
+                    ? 'Select a waitlist player to promote and check them in'
                     : 'Click on a player from the list to view details'
                   }
                 </p>
@@ -746,6 +994,10 @@ export const CheckInPage: React.FC = () => {
                 entryFee={stats?.entry_fee_dollars ?? 125}
                 activityLogs={golferActivityLogs}
                 loadingActivityLogs={loadingActivityLogs}
+                isPromoting={isPromoting}
+                onPromote={handlePromote}
+                onPromotePayCheckIn={handlePromotePayCheckIn}
+                capacityRemaining={stats?.capacity_remaining ?? 0}
               />
             </div>
           </div>

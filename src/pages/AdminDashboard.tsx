@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { Card, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Select } from '../components/ui';
-import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText, Trash2, UserPlus, Calendar, FileSpreadsheet } from 'lucide-react';
+import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText, Trash2, UserPlus, Calendar, FileSpreadsheet, ArrowUpCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api, Golfer, GolferStats, ActivityLog } from '../services/api';
 import { AddGolferModal } from '../components/AddGolferModal';
@@ -47,6 +47,17 @@ export const AdminDashboard: React.FC = () => {
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const [golferActivityLogs, setGolferActivityLogs] = useState<ActivityLog[]>([]);
   const [loadingActivityLogs, setLoadingActivityLogs] = useState(false);
+  const [isPromoting, setIsPromoting] = useState(false);
+  const [isDemoting, setIsDemoting] = useState(false);
+  const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
+  const [isTogglingCheckIn, setIsTogglingCheckIn] = useState(false);
+  const [showStatusChangeConfirm, setShowStatusChangeConfirm] = useState<'demote' | 'unpay' | 'uncheck' | null>(null);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [paymentFormData, setPaymentFormData] = useState({
+    method: 'cash' as 'cash' | 'check' | 'credit',
+    receiptNumber: '',
+    notes: '',
+  });
 
   // Close export menu when clicking outside
   useEffect(() => {
@@ -414,6 +425,99 @@ export const AdminDashboard: React.FC = () => {
       toast.error('Failed to delete golfer');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handlePromoteGolfer = async () => {
+    if (!selectedGolfer) return;
+    
+    setIsPromoting(true);
+    try {
+      const updatedGolfer = await api.promoteGolfer(selectedGolfer.id);
+      toast.success(`${selectedGolfer.name} has been promoted to confirmed! Email notification sent.`);
+      setSelectedGolfer(updatedGolfer);
+      fetchData(); // Refresh the list
+      // Refresh activity logs
+      const response = await api.getGolferActivityHistory(updatedGolfer.id);
+      setGolferActivityLogs(response.activity_logs);
+    } catch (err) {
+      console.error('Error promoting golfer:', err);
+      toast.error('Failed to promote golfer');
+    } finally {
+      setIsPromoting(false);
+    }
+  };
+
+  const handleDemoteGolfer = async () => {
+    if (!selectedGolfer) return;
+    
+    setIsDemoting(true);
+    try {
+      const updatedGolfer = await api.demoteGolfer(selectedGolfer.id);
+      toast.success(`${selectedGolfer.name} has been moved to waitlist.`);
+      setSelectedGolfer(updatedGolfer);
+      setShowStatusChangeConfirm(null);
+      fetchData();
+      const response = await api.getGolferActivityHistory(updatedGolfer.id);
+      setGolferActivityLogs(response.activity_logs);
+    } catch (err) {
+      console.error('Error demoting golfer:', err);
+      toast.error('Failed to move golfer to waitlist');
+    } finally {
+      setIsDemoting(false);
+    }
+  };
+
+  const handleUpdatePaymentStatus = async (newStatus: 'paid' | 'unpaid') => {
+    if (!selectedGolfer) return;
+    
+    setIsUpdatingPayment(true);
+    try {
+      let updatedGolfer;
+      if (newStatus === 'paid') {
+        // Use the payment details endpoint to record payment with full details
+        updatedGolfer = await api.addPaymentDetails(selectedGolfer.id, {
+          payment_method: paymentFormData.method,
+          receipt_number: paymentFormData.receiptNumber,
+          payment_notes: paymentFormData.notes,
+        });
+        setShowPaymentForm(false);
+        setPaymentFormData({ method: 'cash', receiptNumber: '', notes: '' });
+      } else {
+        updatedGolfer = await api.updatePaymentStatus(selectedGolfer.id, newStatus);
+      }
+      toast.success(`${selectedGolfer.name} payment status changed to ${newStatus}.`);
+      setSelectedGolfer(updatedGolfer);
+      setShowStatusChangeConfirm(null);
+      fetchData();
+      const response = await api.getGolferActivityHistory(updatedGolfer.id);
+      setGolferActivityLogs(response.activity_logs);
+    } catch (err) {
+      console.error('Error updating payment status:', err);
+      toast.error('Failed to update payment status');
+    } finally {
+      setIsUpdatingPayment(false);
+    }
+  };
+
+  const handleToggleCheckIn = async () => {
+    if (!selectedGolfer) return;
+    
+    setIsTogglingCheckIn(true);
+    try {
+      const updatedGolfer = await api.checkInGolfer(selectedGolfer.id);
+      const action = selectedGolfer.checked_in ? 'unchecked' : 'checked in';
+      toast.success(`${selectedGolfer.name} has been ${action}.`);
+      setSelectedGolfer(updatedGolfer);
+      setShowStatusChangeConfirm(null);
+      fetchData();
+      const response = await api.getGolferActivityHistory(updatedGolfer.id);
+      setGolferActivityLogs(response.activity_logs);
+    } catch (err) {
+      console.error('Error toggling check-in:', err);
+      toast.error('Failed to update check-in status');
+    } finally {
+      setIsTogglingCheckIn(false);
     }
   };
 
@@ -1200,6 +1304,258 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Manage Status Section */}
+              <div className="pt-4 border-t border-gray-200">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Manage Status</h4>
+                <div className="space-y-2">
+                  {/* Registration Status */}
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <User size={16} className="text-gray-400" />
+                      <span className="text-sm text-gray-700">Registration</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        selectedGolfer.registration_status === 'confirmed'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-gray-200 text-gray-700'
+                      }`}>
+                        {selectedGolfer.registration_status === 'confirmed' ? 'Confirmed' : 'Waitlist'}
+                      </span>
+                      {selectedGolfer.registration_status === 'confirmed' && (
+                        showStatusChangeConfirm === 'demote' ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={handleDemoteGolfer}
+                              disabled={isDemoting}
+                              className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                            >
+                              {isDemoting ? '...' : 'Yes'}
+                            </button>
+                            <button
+                              onClick={() => setShowStatusChangeConfirm(null)}
+                              className="px-2 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setShowStatusChangeConfirm('demote')}
+                            className="text-xs text-gray-500 hover:text-red-600 underline"
+                          >
+                            Move to Waitlist
+                          </button>
+                        )
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Payment Status */}
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <CreditCard size={16} className="text-gray-400" />
+                      <span className="text-sm text-gray-700">Payment</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        selectedGolfer.payment_status === 'paid'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {selectedGolfer.payment_status === 'paid' ? 'Paid' : 'Unpaid'}
+                      </span>
+                      {selectedGolfer.payment_status === 'paid' ? (
+                        showStatusChangeConfirm === 'unpay' ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleUpdatePaymentStatus('unpaid')}
+                              disabled={isUpdatingPayment}
+                              className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                            >
+                              {isUpdatingPayment ? '...' : 'Yes'}
+                            </button>
+                            <button
+                              onClick={() => setShowStatusChangeConfirm(null)}
+                              className="px-2 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setShowStatusChangeConfirm('unpay')}
+                            className="text-xs text-gray-500 hover:text-red-600 underline"
+                          >
+                            Mark Unpaid
+                          </button>
+                        )
+                      ) : (
+                        <button
+                          onClick={() => setShowPaymentForm(true)}
+                          className="text-xs text-green-600 hover:text-green-700 underline"
+                        >
+                          Mark Paid
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Payment Form (when marking as paid) */}
+                  {showPaymentForm && selectedGolfer.payment_status !== 'paid' && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
+                      <h4 className="font-medium text-green-900 text-sm">Record Payment</h4>
+                      
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Payment Method</label>
+                        <select
+                          value={paymentFormData.method}
+                          onChange={(e) => setPaymentFormData(prev => ({ ...prev, method: e.target.value as 'cash' | 'check' | 'credit' }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                        >
+                          <option value="cash">Cash</option>
+                          <option value="check">Check</option>
+                          <option value="credit">Credit Card</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Receipt # (optional)</label>
+                        <input
+                          type="text"
+                          value={paymentFormData.receiptNumber}
+                          onChange={(e) => setPaymentFormData(prev => ({ ...prev, receiptNumber: e.target.value }))}
+                          placeholder="Enter receipt number"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Notes (optional)</label>
+                        <input
+                          type="text"
+                          value={paymentFormData.notes}
+                          onChange={(e) => setPaymentFormData(prev => ({ ...prev, notes: e.target.value }))}
+                          placeholder="Any notes..."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                        />
+                      </div>
+                      
+                      <div className="flex gap-2 pt-2">
+                        <button
+                          onClick={() => handleUpdatePaymentStatus('paid')}
+                          disabled={isUpdatingPayment}
+                          className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+                        >
+                          {isUpdatingPayment ? 'Processing...' : `Mark Paid ($${stats?.entry_fee_dollars ?? 125})`}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowPaymentForm(false);
+                            setPaymentFormData({ method: 'cash', receiptNumber: '', notes: '' });
+                          }}
+                          className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Check-In Status */}
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle size={16} className="text-gray-400" />
+                      <span className="text-sm text-gray-700">Check-In</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        selectedGolfer.checked_in
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-200 text-gray-700'
+                      }`}>
+                        {selectedGolfer.checked_in ? 'Checked In' : 'Not Checked In'}
+                      </span>
+                      {selectedGolfer.checked_in ? (
+                        showStatusChangeConfirm === 'uncheck' ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={handleToggleCheckIn}
+                              disabled={isTogglingCheckIn}
+                              className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                            >
+                              {isTogglingCheckIn ? '...' : 'Yes'}
+                            </button>
+                            <button
+                              onClick={() => setShowStatusChangeConfirm(null)}
+                              className="px-2 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setShowStatusChangeConfirm('uncheck')}
+                            className="text-xs text-gray-500 hover:text-red-600 underline"
+                          >
+                            Undo Check-In
+                          </button>
+                        )
+                      ) : (
+                        <button
+                          onClick={handleToggleCheckIn}
+                          disabled={isTogglingCheckIn}
+                          className="text-xs text-green-600 hover:text-green-700 underline"
+                        >
+                          {isTogglingCheckIn ? 'Updating...' : 'Check In'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Promote from Waitlist */}
+              {selectedGolfer.registration_status === 'waitlist' && (
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-amber-100 rounded-lg">
+                        <ArrowUpCircle className="text-amber-600" size={20} />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-medium text-amber-900">Waitlist Player</h4>
+                        <p className="text-sm text-amber-700 mt-1">
+                          This player is on the waitlist. Promote them to confirmed status and they'll receive an email notification.
+                        </p>
+                        <button
+                          onClick={handlePromoteGolfer}
+                          disabled={isPromoting || stats?.at_capacity}
+                          className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isPromoting ? (
+                            <>
+                              <RefreshCw size={16} className="animate-spin" />
+                              Promoting...
+                            </>
+                          ) : (
+                            <>
+                              <ArrowUpCircle size={16} />
+                              Promote to Confirmed
+                            </>
+                          )}
+                        </button>
+                        {stats?.at_capacity && (
+                          <p className="text-xs text-amber-600 mt-2">
+                            ⚠️ Tournament is at capacity. Cannot promote until a spot opens.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Activity History */}
               <div className="pt-4 border-t border-gray-200">

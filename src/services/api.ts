@@ -315,6 +315,19 @@ class ApiClient {
     });
   }
 
+  async demoteGolfer(id: number): Promise<Golfer> {
+    return this.request(`/api/v1/golfers/${id}/demote`, {
+      method: 'POST',
+    });
+  }
+
+  async updatePaymentStatus(id: number, paymentStatus: 'paid' | 'unpaid'): Promise<Golfer> {
+    return this.request(`/api/v1/golfers/${id}/update_payment_status`, {
+      method: 'POST',
+      body: JSON.stringify({ payment_status: paymentStatus }),
+    });
+  }
+
   async getGolferStats(): Promise<GolferStats> {
     return this.request('/api/v1/golfers/stats');
   }
