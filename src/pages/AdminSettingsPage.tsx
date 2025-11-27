@@ -1,35 +1,22 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
 import { Card, Button, Input } from '../components/ui';
-import { Save, Settings as SettingsIcon, RefreshCw, UserPlus, Trash2, Users, CheckCircle, Clock } from 'lucide-react';
+import { Save, Settings as SettingsIcon, RefreshCw, UserPlus, Trash2, Users, CheckCircle, Clock, Calendar, ExternalLink } from 'lucide-react';
 import { api, Settings, Admin } from '../services/api';
+import { useTournament } from '../contexts';
 import toast from 'react-hot-toast';
 
 export const AdminSettingsPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { currentTournament, refreshTournaments } = useTournament();
+  
   const [settings, setSettings] = useState<Partial<Settings>>({
     stripe_public_key: '',
     stripe_secret_key: '',
     stripe_webhook_secret: '',
-    tournament_entry_fee: 12500,
     payment_mode: 'test',
-    registration_open: true,
     admin_email: '',
-    max_capacity: 160,
-    // Tournament configuration
-    tournament_year: '2026',
-    tournament_edition: '5th',
-    tournament_title: 'AIRPORT WEEK',
-    tournament_name: 'Edward A.P. Muna II Memorial Golf Tournament',
-    event_date: 'January 9, 2026',
-    registration_time: '11:00 am',
-    start_time: '12:30 pm',
-    location_name: 'Country Club of the Pacific',
-    location_address: 'Windward Hills, Guam',
-    format_name: 'Individual Callaway',
-    fee_includes: 'Green Fee, Ditty Bag, Drinks & Food',
-    checks_payable_to: 'GIAAEO',
-    contact_name: 'Peter Torres',
-    contact_phone: '671.689.8677',
   });
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [currentAdmin, setCurrentAdmin] = useState<Admin | null>(null);
@@ -54,26 +41,8 @@ export const AdminSettingsPage: React.FC = () => {
         stripe_public_key: settingsData.stripe_public_key || '',
         stripe_secret_key: settingsData.stripe_secret_key || '',
         stripe_webhook_secret: settingsData.stripe_webhook_secret || '',
-        tournament_entry_fee: settingsData.tournament_entry_fee || 12500,
         payment_mode: settingsData.payment_mode || 'test',
-        registration_open: settingsData.registration_open ?? true,
         admin_email: settingsData.admin_email || '',
-        max_capacity: settingsData.max_capacity || 160,
-        // Tournament configuration
-        tournament_year: settingsData.tournament_year || '2026',
-        tournament_edition: settingsData.tournament_edition || '5th',
-        tournament_title: settingsData.tournament_title || 'AIRPORT WEEK',
-        tournament_name: settingsData.tournament_name || 'Edward A.P. Muna II Memorial Golf Tournament',
-        event_date: settingsData.event_date || 'January 9, 2026',
-        registration_time: settingsData.registration_time || '11:00 am',
-        start_time: settingsData.start_time || '12:30 pm',
-        location_name: settingsData.location_name || 'Country Club of the Pacific',
-        location_address: settingsData.location_address || 'Windward Hills, Guam',
-        format_name: settingsData.format_name || 'Individual Callaway',
-        fee_includes: settingsData.fee_includes || 'Green Fee, Ditty Bag, Drinks & Food',
-        checks_payable_to: settingsData.checks_payable_to || 'GIAAEO',
-        contact_name: settingsData.contact_name || 'Peter Torres',
-        contact_phone: settingsData.contact_phone || '671.689.8677',
       });
       setAdmins(adminsData);
       setCurrentAdmin(meData);
@@ -98,7 +67,6 @@ export const AdminSettingsPage: React.FC = () => {
       await api.createAdmin({ email: newAdminEmail.trim() });
       toast.success(`Admin invite sent to ${newAdminEmail}`);
       setNewAdminEmail('');
-      // Refresh admins list
       const adminsData = await api.getAdmins();
       setAdmins(adminsData);
     } catch (err) {
@@ -127,9 +95,7 @@ export const AdminSettingsPage: React.FC = () => {
     const { name, value } = e.target;
     setSettings((prev) => ({
       ...prev,
-      [name]: ['max_capacity', 'tournament_entry_fee'].includes(name) 
-        ? parseInt(value) || 0 
-        : value,
+      [name]: value,
     }));
   };
 
@@ -148,6 +114,23 @@ export const AdminSettingsPage: React.FC = () => {
       setSaveMessage('Error saving settings. Please try again.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleToggleRegistration = async () => {
+    if (!currentTournament) return;
+    
+    try {
+      if (currentTournament.registration_open) {
+        await api.updateTournament(currentTournament.id, { registration_open: false });
+        toast.success('Registration closed');
+      } else {
+        await api.updateTournament(currentTournament.id, { registration_open: true });
+        toast.success('Registration opened');
+      }
+      refreshTournaments();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update registration status');
     }
   };
 
@@ -179,156 +162,59 @@ export const AdminSettingsPage: React.FC = () => {
           </div>
         )}
 
-        <form onSubmit={handleSave} className="space-y-4 lg:space-y-6">
-          {/* Registration Toggle */}
-          <Card className={`p-4 lg:p-6 border-2 ${settings.registration_open ? 'border-green-500' : 'border-red-500'}`}>
-            <div className="flex items-center justify-between">
+        {/* Current Tournament Quick Info */}
+        {currentTournament && (
+          <Card className={`p-4 lg:p-6 border-2 ${currentTournament.registration_open ? 'border-green-500' : 'border-red-500'}`}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-1">
-                  Registration Status
+                  Current Tournament
                 </h2>
-                <p className="text-xs lg:text-sm text-gray-600">
-                  {settings.registration_open 
-                    ? 'New golfers can register for the tournament.' 
-                    : 'Registration is closed. No new registrations allowed.'}
+                <p className="text-sm text-gray-600">
+                  {currentTournament.display_name}
                 </p>
+                <div className="flex items-center gap-4 mt-2 text-sm">
+                  <span className="text-gray-600">
+                    {currentTournament.confirmed_count}/{currentTournament.max_capacity} registered
+                  </span>
+                  <span className="text-gray-600">
+                    ${currentTournament.entry_fee_dollars} fee
+                  </span>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setSettings(prev => ({ ...prev, registration_open: !prev.registration_open }))}
-                className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                  settings.registration_open 
-                    ? 'bg-green-500 focus:ring-green-500' 
-                    : 'bg-red-500 focus:ring-red-500'
-                }`}
-              >
-                <span
-                  className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-lg transition-transform ${
-                    settings.registration_open ? 'translate-x-7' : 'translate-x-1'
+              
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={handleToggleRegistration}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                    currentTournament.registration_open 
+                      ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                      : 'bg-green-100 text-green-700 hover:bg-green-200'
                   }`}
-                />
-              </button>
+                >
+                  {currentTournament.registration_open ? 'Close Registration' : 'Open Registration'}
+                </button>
+                
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/admin/tournaments')}
+                >
+                  <Calendar size={16} className="mr-2" />
+                  Manage Tournament
+                </Button>
+              </div>
             </div>
-            <div className={`mt-4 p-3 rounded-lg ${settings.registration_open ? 'bg-green-50' : 'bg-red-50'}`}>
-              <p className={`text-sm font-medium ${settings.registration_open ? 'text-green-800' : 'text-red-800'}`}>
-                {settings.registration_open ? '✓ Registration is OPEN' : '✕ Registration is CLOSED'}
+            
+            <div className={`mt-4 p-3 rounded-lg ${currentTournament.registration_open ? 'bg-green-50' : 'bg-red-50'}`}>
+              <p className={`text-sm font-medium ${currentTournament.registration_open ? 'text-green-800' : 'text-red-800'}`}>
+                {currentTournament.registration_open ? '✓ Registration is OPEN' : '✕ Registration is CLOSED'}
               </p>
             </div>
           </Card>
+        )}
 
-          {/* Tournament Details */}
-          <Card className="p-4 lg:p-6">
-            <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-2 lg:mb-4">
-              Tournament Details
-            </h2>
-            <p className="text-xs lg:text-sm text-gray-600 mb-4">
-              Configure the tournament information displayed on the home page.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Year"
-                name="tournament_year"
-                value={settings.tournament_year || ''}
-                onChange={handleChange}
-                placeholder="2026"
-              />
-              <Input
-                label="Edition (e.g., 5th, 6th)"
-                name="tournament_edition"
-                value={settings.tournament_edition || ''}
-                onChange={handleChange}
-                placeholder="5th"
-              />
-              <Input
-                label="Title (e.g., AIRPORT WEEK)"
-                name="tournament_title"
-                value={settings.tournament_title || ''}
-                onChange={handleChange}
-                placeholder="AIRPORT WEEK"
-              />
-              <Input
-                label="Tournament Name"
-                name="tournament_name"
-                value={settings.tournament_name || ''}
-                onChange={handleChange}
-                placeholder="Edward A.P. Muna II Memorial Golf Tournament"
-              />
-              <Input
-                label="Event Date"
-                name="event_date"
-                value={settings.event_date || ''}
-                onChange={handleChange}
-                placeholder="January 9, 2026"
-              />
-              <Input
-                label="Registration Time"
-                name="registration_time"
-                value={settings.registration_time || ''}
-                onChange={handleChange}
-                placeholder="11:00 am"
-              />
-              <Input
-                label="Start Time (Shotgun)"
-                name="start_time"
-                value={settings.start_time || ''}
-                onChange={handleChange}
-                placeholder="12:30 pm"
-              />
-              <Input
-                label="Format Name"
-                name="format_name"
-                value={settings.format_name || ''}
-                onChange={handleChange}
-                placeholder="Individual Callaway"
-              />
-              <Input
-                label="Location Name"
-                name="location_name"
-                value={settings.location_name || ''}
-                onChange={handleChange}
-                placeholder="Country Club of the Pacific"
-              />
-              <Input
-                label="Location Address"
-                name="location_address"
-                value={settings.location_address || ''}
-                onChange={handleChange}
-                placeholder="Windward Hills, Guam"
-              />
-              <div className="md:col-span-2">
-                <Input
-                  label="Fee Includes (comma-separated)"
-                  name="fee_includes"
-                  value={settings.fee_includes || ''}
-                  onChange={handleChange}
-                  placeholder="Green Fee, Ditty Bag, Drinks & Food"
-                />
-              </div>
-              <Input
-                label="Checks Payable To"
-                name="checks_payable_to"
-                value={settings.checks_payable_to || ''}
-                onChange={handleChange}
-                placeholder="GIAAEO"
-              />
-              <Input
-                label="Contact Name"
-                name="contact_name"
-                value={settings.contact_name || ''}
-                onChange={handleChange}
-                placeholder="Peter Torres"
-              />
-              <Input
-                label="Contact Phone"
-                name="contact_phone"
-                value={settings.contact_phone || ''}
-                onChange={handleChange}
-                placeholder="671.689.8677"
-              />
-            </div>
-          </Card>
-
+        <form onSubmit={handleSave} className="space-y-4 lg:space-y-6">
           {/* Payment Mode Toggle */}
           <Card className="p-4 lg:p-6">
             <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-2 lg:mb-4">
@@ -441,31 +327,6 @@ export const AdminSettingsPage: React.FC = () => {
                 type="password"
               />
 
-              <div className="max-w-xs">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Entry Fee ($)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                  <input
-                    type="number"
-                    name="tournament_entry_fee_dollars"
-                    value={((settings.tournament_entry_fee || 12500) / 100).toFixed(2)}
-                    onChange={(e) => {
-                      const dollars = parseFloat(e.target.value) || 0;
-                      const cents = Math.round(dollars * 100);
-                      setSettings(prev => ({ ...prev, tournament_entry_fee: cents }));
-                    }}
-                    step="0.01"
-                    min="0"
-                    className="w-full pl-7 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  e.g., 125.00 for $125
-                </p>
-              </div>
-
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 lg:p-4">
                 <p className="text-xs lg:text-sm text-blue-900">
                   <strong>Note:</strong> Find your Stripe API keys in your{' '}
@@ -494,10 +355,10 @@ export const AdminSettingsPage: React.FC = () => {
 
           <Card className="p-4 lg:p-6">
             <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-2 lg:mb-4">
-              Email Configuration
+              Admin Notifications
             </h2>
             <p className="text-xs lg:text-sm text-gray-600 mb-3 lg:mb-4">
-              Set the email address for admin notifications.
+              Set the email address for admin notifications when new golfers register.
             </p>
 
             <Input
@@ -508,60 +369,6 @@ export const AdminSettingsPage: React.FC = () => {
               onChange={handleChange}
               placeholder="admin@example.com"
             />
-          </Card>
-
-          <Card className="p-4 lg:p-6">
-            <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-2 lg:mb-4">
-              Tournament Configuration
-            </h2>
-            <p className="text-xs lg:text-sm text-gray-600 mb-3 lg:mb-4">
-              Set the maximum number of players allowed.
-            </p>
-
-            <div className="max-w-xs">
-              <Input
-                label="Capacity Limit"
-                name="max_capacity"
-                type="number"
-                value={settings.max_capacity?.toString() || '160'}
-                onChange={handleChange}
-                min="1"
-                max="200"
-              />
-            </div>
-
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 lg:p-4 mt-3 lg:mt-4">
-              <p className="text-xs lg:text-sm text-amber-900">
-                <strong>Current Limit:</strong> {settings.max_capacity} players
-              </p>
-              <p className="text-[10px] lg:text-xs text-amber-700 mt-1">
-                Standard capacity is 144-160 players (36-40 groups).
-              </p>
-            </div>
-          </Card>
-
-          <Card className="p-4 lg:p-6">
-            <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-2 lg:mb-4">
-              Database Information
-            </h2>
-            <p className="text-xs lg:text-sm text-gray-600 mb-3 lg:mb-4">
-              System configuration details.
-            </p>
-
-            <div className="bg-gray-50 rounded-lg p-3 lg:p-4 space-y-2">
-              <div className="flex justify-between text-xs lg:text-sm">
-                <span className="text-gray-600">Database:</span>
-                <span className="font-medium text-gray-900">PostgreSQL</span>
-              </div>
-              <div className="flex justify-between text-xs lg:text-sm">
-                <span className="text-gray-600">Real-time:</span>
-                <span className="font-medium text-green-600">ActionCable</span>
-              </div>
-              <div className="flex justify-between text-xs lg:text-sm">
-                <span className="text-gray-600">Auth:</span>
-                <span className="font-medium text-green-600">Clerk JWT</span>
-              </div>
-            </div>
           </Card>
 
           {saveMessage && (
@@ -697,6 +504,27 @@ export const AdminSettingsPage: React.FC = () => {
             <p className="text-xs lg:text-sm text-blue-900">
               <strong>How it works:</strong> Add an email address, and when that person signs up/logs in through Clerk with that email, they'll automatically get admin access.
             </p>
+          </div>
+        </Card>
+
+        {/* Tournament Settings Link */}
+        <Card className="p-4 lg:p-6 bg-gray-50">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 mb-1">
+                Tournament Settings
+              </h2>
+              <p className="text-sm text-gray-600">
+                Tournament details, capacity, entry fee, and other tournament-specific settings are now managed on the Tournaments page.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => navigate('/admin/tournaments')}
+            >
+              <ExternalLink size={16} className="mr-2" />
+              Go to Tournaments
+            </Button>
           </div>
         </Card>
       </div>

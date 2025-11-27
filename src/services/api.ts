@@ -2,8 +2,42 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 // Types for API responses
+export interface Tournament {
+  id: number;
+  name: string;
+  year: number;
+  edition: string | null;
+  status: 'draft' | 'open' | 'closed' | 'archived';
+  event_date: string | null;
+  registration_time: string | null;
+  start_time: string | null;
+  location_name: string | null;
+  location_address: string | null;
+  max_capacity: number;
+  entry_fee: number;
+  entry_fee_dollars: number;
+  format_name: string | null;
+  fee_includes: string | null;
+  checks_payable_to: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  registration_open: boolean;
+  can_register: boolean;
+  confirmed_count: number;
+  waitlist_count: number;
+  capacity_remaining: number;
+  at_capacity: boolean;
+  checked_in_count: number;
+  paid_count: number;
+  display_name: string;
+  short_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Golfer {
   id: number;
+  tournament_id: number;
   name: string;
   company: string | null;
   address: string | null;
@@ -32,6 +66,7 @@ export interface Golfer {
 
 export interface Group {
   id: number;
+  tournament_id: number;
   group_number: number;
   hole_number: number | null;
   created_at: string;
@@ -52,6 +87,7 @@ export interface Admin {
 
 export interface ActivityLog {
   id: number;
+  tournament_id: number | null;
   action: string;
   target_type: string | null;
   target_id: number | null;
@@ -64,6 +100,8 @@ export interface ActivityLog {
 }
 
 export interface ActivityLogSummary {
+  tournament_id: number | null;
+  tournament_name: string | null;
   today_count: number;
   total_count: number;
   by_action: Record<string, number>;
@@ -71,36 +109,18 @@ export interface ActivityLogSummary {
   daily_activity: Record<string, number>;
 }
 
+// Global settings (shared across tournaments)
 export interface Settings {
   id: number;
-  max_capacity: number;
   stripe_public_key: string | null;
   stripe_secret_key: string | null;
   stripe_webhook_secret: string | null;
-  tournament_entry_fee: number | null;
-  entry_fee_dollars: number;
   admin_email: string | null;
   payment_mode: 'test' | 'production';
-  registration_open: boolean;
-  capacity_remaining: number;
-  at_capacity: boolean;
   stripe_configured: boolean;
   test_mode: boolean;
-  // Tournament configuration
-  tournament_year: string | null;
-  tournament_edition: string | null;
-  tournament_title: string | null;
-  tournament_name: string | null;
-  event_date: string | null;
-  registration_time: string | null;
-  start_time: string | null;
-  location_name: string | null;
-  location_address: string | null;
-  format_name: string | null;
-  fee_includes: string | null;
-  checks_payable_to: string | null;
-  contact_name: string | null;
-  contact_phone: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CheckoutSession {
@@ -117,6 +137,7 @@ export interface PaymentConfirmation {
 }
 
 export interface RegistrationStatus {
+  tournament_id: number;
   max_capacity: number;
   confirmed_count: number;
   waitlist_count: number;
@@ -126,7 +147,7 @@ export interface RegistrationStatus {
   entry_fee_cents: number;
   entry_fee_dollars: number;
   // Tournament configuration
-  tournament_year: string;
+  tournament_year: number | string;
   tournament_edition: string;
   tournament_title: string;
   tournament_name: string;
@@ -140,9 +161,14 @@ export interface RegistrationStatus {
   checks_payable_to: string;
   contact_name: string;
   contact_phone: string;
+  // Global settings
+  stripe_configured?: boolean;
+  payment_mode?: string;
 }
 
 export interface GolferStats {
+  tournament_id: number;
+  tournament_name: string;
   total: number;
   confirmed: number;
   waitlist: number;
@@ -157,7 +183,6 @@ export interface GolferStats {
   at_capacity: boolean;
   entry_fee_cents: number;
   entry_fee_dollars: number;
-  tournament_name: string;
 }
 
 export interface PaginationMeta {
@@ -170,10 +195,20 @@ export interface PaginationMeta {
 // API client class
 class ApiClient {
   private getAuthToken: (() => Promise<string | null>) | null = null;
+  private currentTournamentId: number | null = null;
 
   // Set the auth token getter (called from React component)
   setAuthTokenGetter(getter: () => Promise<string | null>) {
     this.getAuthToken = getter;
+  }
+
+  // Tournament context management
+  setCurrentTournament(tournamentId: number | null) {
+    this.currentTournamentId = tournamentId;
+  }
+
+  getCurrentTournamentId(): number | null {
+    return this.currentTournamentId;
   }
 
   private async getHeaders(authenticated = true): Promise<HeadersInit> {
@@ -225,6 +260,66 @@ class ApiClient {
     return response.json();
   }
 
+  // Tournament endpoints
+  async getTournaments(params?: { status?: string }): Promise<Tournament[]> {
+    const searchParams = new URLSearchParams();
+    if (params?.status) searchParams.set('status', params.status);
+    const query = searchParams.toString();
+    return this.request(`/api/v1/tournaments${query ? `?${query}` : ''}`);
+  }
+
+  async getCurrentTournament(): Promise<Tournament> {
+    return this.request('/api/v1/tournaments/current', {}, false);
+  }
+
+  async getTournament(id: number): Promise<Tournament> {
+    return this.request(`/api/v1/tournaments/${id}`);
+  }
+
+  async createTournament(data: Partial<Tournament>): Promise<Tournament> {
+    return this.request('/api/v1/tournaments', {
+      method: 'POST',
+      body: JSON.stringify({ tournament: data }),
+    });
+  }
+
+  async updateTournament(id: number, data: Partial<Tournament>): Promise<Tournament> {
+    return this.request(`/api/v1/tournaments/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ tournament: data }),
+    });
+  }
+
+  async deleteTournament(id: number): Promise<void> {
+    return this.request(`/api/v1/tournaments/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async archiveTournament(id: number): Promise<Tournament> {
+    return this.request(`/api/v1/tournaments/${id}/archive`, {
+      method: 'POST',
+    });
+  }
+
+  async copyTournament(id: number): Promise<Tournament> {
+    return this.request(`/api/v1/tournaments/${id}/copy`, {
+      method: 'POST',
+    });
+  }
+
+  async openTournament(id: number): Promise<Tournament> {
+    return this.request(`/api/v1/tournaments/${id}/open`, {
+      method: 'POST',
+    });
+  }
+
+  async closeTournament(id: number): Promise<Tournament> {
+    return this.request(`/api/v1/tournaments/${id}/close`, {
+      method: 'POST',
+    });
+  }
+
   // Public endpoints (no auth required)
   async getRegistrationStatus(): Promise<RegistrationStatus> {
     return this.request('/api/v1/golfers/registration_status', {}, false);
@@ -252,6 +347,7 @@ class ApiClient {
 
   // Protected endpoints (auth required)
   async getGolfers(params?: {
+    tournament_id?: number;
     payment_status?: string;
     payment_type?: string;
     registration_status?: string;
@@ -264,9 +360,14 @@ class ApiClient {
     per_page?: number;
   }): Promise<{ golfers: Golfer[]; meta: PaginationMeta }> {
     const searchParams = new URLSearchParams();
+    // Add tournament_id if set
+    const tournamentId = params?.tournament_id || this.currentTournamentId;
+    if (tournamentId) {
+      searchParams.append('tournament_id', String(tournamentId));
+    }
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
+        if (key !== 'tournament_id' && value !== undefined && value !== null && value !== '') {
           searchParams.append(key, String(value));
         }
       });
@@ -328,23 +429,31 @@ class ApiClient {
     });
   }
 
-  async getGolferStats(): Promise<GolferStats> {
-    return this.request('/api/v1/golfers/stats');
+  async getGolferStats(tournamentId?: number): Promise<GolferStats> {
+    const id = tournamentId || this.currentTournamentId;
+    const query = id ? `?tournament_id=${id}` : '';
+    return this.request(`/api/v1/golfers/stats${query}`);
   }
 
   // Groups
-  async getGroups(): Promise<Group[]> {
-    return this.request('/api/v1/groups');
+  async getGroups(tournamentId?: number): Promise<Group[]> {
+    const id = tournamentId || this.currentTournamentId;
+    const query = id ? `?tournament_id=${id}` : '';
+    return this.request(`/api/v1/groups${query}`);
   }
 
   async getGroup(id: number): Promise<Group> {
     return this.request(`/api/v1/groups/${id}`);
   }
 
-  async createGroup(holeNumber?: number): Promise<Group> {
+  async createGroup(holeNumber?: number, tournamentId?: number): Promise<Group> {
+    const id = tournamentId || this.currentTournamentId;
     return this.request('/api/v1/groups', {
       method: 'POST',
-      body: JSON.stringify({ hole_number: holeNumber }),
+      body: JSON.stringify({ 
+        hole_number: holeNumber,
+        tournament_id: id
+      }),
     });
   }
 
@@ -393,16 +502,19 @@ class ApiClient {
     });
   }
 
-  async batchCreateGroups(count: number): Promise<Group[]> {
+  async batchCreateGroups(count: number, tournamentId?: number): Promise<Group[]> {
+    const id = tournamentId || this.currentTournamentId;
     return this.request('/api/v1/groups/batch_create', {
       method: 'POST',
-      body: JSON.stringify({ count }),
+      body: JSON.stringify({ count, tournament_id: id }),
     });
   }
 
-  async autoAssignGolfers(): Promise<{ message: string; assigned_count: number }> {
+  async autoAssignGolfers(tournamentId?: number): Promise<{ message: string; assigned_count: number }> {
+    const id = tournamentId || this.currentTournamentId;
     return this.request('/api/v1/groups/auto_assign', {
       method: 'POST',
+      body: JSON.stringify({ tournament_id: id }),
     });
   }
 
@@ -435,7 +547,7 @@ class ApiClient {
     });
   }
 
-  // Settings
+  // Settings (global only)
   async getSettings(): Promise<Settings> {
     return this.request('/api/v1/settings');
   }
@@ -475,6 +587,8 @@ class ApiClient {
 
   // Activity Logs
   async getActivityLogs(params?: {
+    tournament_id?: number;
+    all_tournaments?: boolean;
     page?: number;
     per_page?: number;
     admin_id?: number;
@@ -485,6 +599,11 @@ class ApiClient {
     end_date?: string;
   }): Promise<{ activity_logs: ActivityLog[]; meta: { current_page: number; per_page: number; total_count: number; total_pages: number } }> {
     const searchParams = new URLSearchParams();
+    const tournamentId = params?.tournament_id || this.currentTournamentId;
+    if (tournamentId && !params?.all_tournaments) {
+      searchParams.set('tournament_id', tournamentId.toString());
+    }
+    if (params?.all_tournaments) searchParams.set('all_tournaments', 'true');
     if (params?.page) searchParams.set('page', params.page.toString());
     if (params?.per_page) searchParams.set('per_page', params.per_page.toString());
     if (params?.admin_id) searchParams.set('admin_id', params.admin_id.toString());
@@ -498,8 +617,10 @@ class ApiClient {
     return this.request(`/api/v1/activity_logs${query ? `?${query}` : ''}`);
   }
 
-  async getActivityLogSummary(): Promise<ActivityLogSummary> {
-    return this.request('/api/v1/activity_logs/summary');
+  async getActivityLogSummary(tournamentId?: number): Promise<ActivityLogSummary> {
+    const id = tournamentId || this.currentTournamentId;
+    const query = id ? `?tournament_id=${id}` : '';
+    return this.request(`/api/v1/activity_logs/summary${query}`);
   }
 
   async getGolferActivityHistory(golferId: number): Promise<{ activity_logs: ActivityLog[]; golfer_id: number; golfer_name: string }> {
@@ -509,4 +630,3 @@ class ApiClient {
 
 // Export singleton instance
 export const api = new ApiClient();
-

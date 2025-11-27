@@ -12,8 +12,21 @@ import {
   CheckInPage,
   AdminSettingsPage,
   ReportsPage,
+  TournamentManagementPage,
 } from './pages';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { TournamentProvider } from './contexts';
+
+// Wrapper component for admin routes with tournament context
+function AdminRouteWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <ProtectedRoute>
+      <TournamentProvider>
+        {children}
+      </TournamentProvider>
+    </ProtectedRoute>
+  );
+}
 
 function App() {
   return (
@@ -30,45 +43,53 @@ function App() {
         {/* Admin Login (public) */}
         <Route path="/admin/login" element={<AdminLoginPage />} />
 
-        {/* Protected Admin Routes */}
+        {/* Protected Admin Routes with Tournament Context */}
         <Route
           path="/admin/dashboard"
           element={
-            <ProtectedRoute>
+            <AdminRouteWrapper>
               <AdminDashboard />
-            </ProtectedRoute>
+            </AdminRouteWrapper>
           }
         />
         <Route
           path="/admin/groups"
           element={
-            <ProtectedRoute>
+            <AdminRouteWrapper>
               <GroupManagementPage />
-            </ProtectedRoute>
+            </AdminRouteWrapper>
           }
         />
         <Route
           path="/admin/checkin"
           element={
-            <ProtectedRoute>
+            <AdminRouteWrapper>
               <CheckInPage />
-            </ProtectedRoute>
+            </AdminRouteWrapper>
           }
         />
         <Route
           path="/admin/settings"
           element={
-            <ProtectedRoute>
+            <AdminRouteWrapper>
               <AdminSettingsPage />
-            </ProtectedRoute>
+            </AdminRouteWrapper>
           }
         />
         <Route
           path="/admin/reports"
           element={
-            <ProtectedRoute>
+            <AdminRouteWrapper>
               <ReportsPage />
-            </ProtectedRoute>
+            </AdminRouteWrapper>
+          }
+        />
+        <Route
+          path="/admin/tournaments"
+          element={
+            <AdminRouteWrapper>
+              <TournamentManagementPage />
+            </AdminRouteWrapper>
           }
         />
 

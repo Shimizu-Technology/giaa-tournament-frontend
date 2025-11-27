@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { UserButton, useUser } from '@clerk/clerk-react';
-import { Trophy, LayoutDashboard, Users, ClipboardCheck, Settings, Home, Menu, X, BarChart3 } from 'lucide-react';
-import { api } from '../services/api';
+import { Trophy, LayoutDashboard, Users, ClipboardCheck, Settings, Home, Menu, X, BarChart3, Calendar, ChevronDown } from 'lucide-react';
+import { useTournament } from '../contexts';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -13,19 +13,16 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const location = useLocation();
   const { user } = useUser();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [tournamentName, setTournamentName] = useState<string | null>(null);
-
-  useEffect(() => {
-    api.getRegistrationStatus()
-      .then(status => setTournamentName(status.tournament_name))
-      .catch(() => {});
-  }, []);
+  const [tournamentDropdownOpen, setTournamentDropdownOpen] = useState(false);
+  
+  const { tournaments, currentTournament, setCurrentTournament, isLoading } = useTournament();
 
   const menuItems = [
     { path: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/admin/groups', icon: Users, label: 'Groups' },
     { path: '/admin/checkin', icon: ClipboardCheck, label: 'Check-In' },
     { path: '/admin/reports', icon: BarChart3, label: 'Reports' },
+    { path: '/admin/tournaments', icon: Calendar, label: 'Tournaments' },
     { path: '/admin/settings', icon: Settings, label: 'Settings' },
   ];
 
@@ -33,6 +30,16 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     navigate(path);
     setMobileMenuOpen(false);
   };
+
+  const handleTournamentSelect = (tournament: typeof currentTournament) => {
+    if (tournament) {
+      setCurrentTournament(tournament);
+    }
+    setTournamentDropdownOpen(false);
+  };
+
+  const activeTournaments = tournaments.filter(t => t.status !== 'archived');
+  const archivedTournaments = tournaments.filter(t => t.status === 'archived');
 
   return (
     <div className="min-h-screen bg-gray-100 pb-20 lg:pb-0">
@@ -47,9 +54,106 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               <Trophy size={28} className="lg:w-8 lg:h-8" />
               <div className="text-left">
                 <h1 className="font-bold text-base lg:text-lg">Tournament Admin</h1>
-                <p className="text-[10px] lg:text-xs text-blue-200 hidden sm:block">{tournamentName?.replace(' Golf Tournament', '') || 'Edward A.P. Muna II Memorial'}</p>
+                <p className="text-[10px] lg:text-xs text-blue-200 hidden sm:block">
+                  {currentTournament?.name?.replace(' Golf Tournament', '') || 'Loading...'}
+                </p>
               </div>
             </button>
+            
+            {/* Tournament Selector (Desktop) */}
+            <div className="hidden lg:block relative">
+              <button
+                onClick={() => setTournamentDropdownOpen(!tournamentDropdownOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-blue-800 hover:bg-blue-700 rounded-lg text-sm transition-colors"
+              >
+                <Calendar size={16} />
+                <span className="max-w-[200px] truncate">
+                  {isLoading ? 'Loading...' : currentTournament?.short_name || 'Select Tournament'}
+                </span>
+                <ChevronDown size={16} className={`transition-transform ${tournamentDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {tournamentDropdownOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-10" 
+                    onClick={() => setTournamentDropdownOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-20 overflow-hidden">
+                    {activeTournaments.length > 0 && (
+                      <div className="p-2">
+                        <p className="text-xs font-semibold text-gray-500 uppercase px-2 py-1">Active Tournaments</p>
+                        {activeTournaments.map(tournament => (
+                          <button
+                            key={tournament.id}
+                            onClick={() => handleTournamentSelect(tournament)}
+                            className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                              currentTournament?.id === tournament.id
+                                ? 'bg-blue-100 text-blue-900'
+                                : 'text-gray-700 hover:bg-gray-100'
+                            }`}
+                          >
+                            <div className="font-medium">{tournament.short_name}</div>
+                            <div className="text-xs text-gray-500 flex items-center gap-2">
+                              <span className={`inline-block w-2 h-2 rounded-full ${
+                                tournament.status === 'open' ? 'bg-green-500' :
+                                tournament.status === 'draft' ? 'bg-yellow-500' :
+                                tournament.status === 'closed' ? 'bg-red-500' : 'bg-gray-400'
+                              }`} />
+                              {tournament.status.charAt(0).toUpperCase() + tournament.status.slice(1)}
+                              {tournament.status === 'open' && ` • ${tournament.confirmed_count}/${tournament.max_capacity}`}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {archivedTournaments.length > 0 && (
+                      <div className="p-2 border-t border-gray-200">
+                        <p className="text-xs font-semibold text-gray-500 uppercase px-2 py-1">Archived</p>
+                        {archivedTournaments.slice(0, 3).map(tournament => (
+                          <button
+                            key={tournament.id}
+                            onClick={() => handleTournamentSelect(tournament)}
+                            className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                              currentTournament?.id === tournament.id
+                                ? 'bg-blue-100 text-blue-900'
+                                : 'text-gray-500 hover:bg-gray-100'
+                            }`}
+                          >
+                            <div className="font-medium">{tournament.short_name}</div>
+                            <div className="text-xs text-gray-400">Archived</div>
+                          </button>
+                        ))}
+                        {archivedTournaments.length > 3 && (
+                          <button
+                            onClick={() => {
+                              setTournamentDropdownOpen(false);
+                              navigate('/admin/tournaments');
+                            }}
+                            className="w-full text-left px-3 py-2 text-xs text-blue-600 hover:text-blue-800"
+                          >
+                            View all {archivedTournaments.length} archived →
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    
+                    <div className="p-2 border-t border-gray-200 bg-gray-50">
+                      <button
+                        onClick={() => {
+                          setTournamentDropdownOpen(false);
+                          navigate('/admin/tournaments');
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        Manage Tournaments →
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
             
             <div className="flex items-center gap-2 lg:gap-4">
               <button
@@ -88,6 +192,25 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         {mobileMenuOpen && (
           <div className="lg:hidden bg-blue-800 border-t border-blue-700 animate-fade-in">
             <div className="container mx-auto px-4 py-3 space-y-1">
+              {/* Tournament selector for mobile */}
+              <div className="mb-3 px-2">
+                <p className="text-xs text-blue-300 mb-2">Current Tournament:</p>
+                <select
+                  value={currentTournament?.id || ''}
+                  onChange={(e) => {
+                    const selected = tournaments.find(t => t.id === parseInt(e.target.value));
+                    if (selected) handleTournamentSelect(selected);
+                  }}
+                  className="w-full bg-blue-900 text-white border border-blue-600 rounded-lg px-3 py-2 text-sm"
+                >
+                  {tournaments.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.short_name} ({t.status})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
               {menuItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
@@ -153,7 +276,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       {/* Mobile Bottom Navigation - Fixed at bottom */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
         <div className="flex justify-around items-center h-16 px-2">
-          {menuItems.map((item) => {
+          {menuItems.slice(0, 5).map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             return (
