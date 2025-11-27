@@ -246,7 +246,8 @@ export const LandingPage: React.FC = () => {
                   </Button>
                 )}
                 
-                {isLoaded && isSignedIn ? (
+                {/* Only show Dashboard button if admin is signed in */}
+                {isLoaded && isSignedIn && (
                   <Button
                     variant="outline"
                     size="lg"
@@ -254,15 +255,6 @@ export const LandingPage: React.FC = () => {
                     className="w-full sm:w-auto text-base border-[#1e3a5f] text-[#1e3a5f] hover:bg-[#1e3a5f] hover:text-white"
                   >
                     Dashboard
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    onClick={() => navigate('/admin/login')}
-                    className="w-full sm:w-auto text-base border-[#1e3a5f] text-[#1e3a5f] hover:bg-[#1e3a5f] hover:text-white"
-                  >
-                    Admin Login
                   </Button>
                 )}
               </div>
@@ -298,6 +290,19 @@ export const LandingPage: React.FC = () => {
               <span>Call</span>
               <span>{registrationStatus?.contact_phone || '671.689.8677'}</span>
             </a>
+          </div>
+
+          {/* Staff Login Link - Subtle but findable */}
+          <div className="mt-8 pt-4 border-t border-gray-200/50">
+            <button
+              onClick={() => navigate('/admin/login')}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:text-[#1e3a5f] hover:bg-white/80 rounded-lg transition-all"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              Staff Portal
+            </button>
           </div>
         </div>
 

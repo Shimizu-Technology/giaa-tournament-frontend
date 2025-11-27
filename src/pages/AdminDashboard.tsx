@@ -3,7 +3,7 @@ import { AdminLayout } from '../components/AdminLayout';
 import { Card, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Select } from '../components/ui';
 import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText, Trash2, UserPlus, Calendar, FileSpreadsheet } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { api, Golfer, GolferStats } from '../services/api';
+import { api, Golfer, GolferStats, ActivityLog } from '../services/api';
 import { AddGolferModal } from '../components/AddGolferModal';
 import * as XLSX from 'xlsx';
 
@@ -45,6 +45,8 @@ export const AdminDashboard: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+  const [golferActivityLogs, setGolferActivityLogs] = useState<ActivityLog[]>([]);
+  const [loadingActivityLogs, setLoadingActivityLogs] = useState(false);
 
   // Close export menu when clicking outside
   useEffect(() => {
@@ -412,6 +414,20 @@ export const AdminDashboard: React.FC = () => {
       toast.error('Failed to delete golfer');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleSelectGolfer = async (golfer: Golfer) => {
+    setSelectedGolfer(golfer);
+    setGolferActivityLogs([]);
+    setLoadingActivityLogs(true);
+    try {
+      const response = await api.getGolferActivityHistory(golfer.id);
+      setGolferActivityLogs(response.activity_logs);
+    } catch (err) {
+      console.error('Error fetching activity logs:', err);
+    } finally {
+      setLoadingActivityLogs(false);
     }
   };
 
@@ -854,7 +870,7 @@ export const AdminDashboard: React.FC = () => {
                 {filteredGolfers.map((golfer) => (
                   <button
                     key={golfer.id}
-                    onClick={() => setSelectedGolfer(golfer)}
+                    onClick={() => handleSelectGolfer(golfer)}
                     className="w-full text-left bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 transition-colors"
                   >
                     <div className="flex items-start justify-between mb-2">
@@ -917,7 +933,7 @@ export const AdminDashboard: React.FC = () => {
                       <TableRow 
                         key={golfer.id} 
                         className="cursor-pointer hover:bg-blue-50 transition-colors"
-                        onClick={() => setSelectedGolfer(golfer)}
+                        onClick={() => handleSelectGolfer(golfer)}
                       >
                         <TableCell className="font-medium">{golfer.name}</TableCell>
                         <TableCell>{golfer.email}</TableCell>
@@ -1183,6 +1199,37 @@ export const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Activity History */}
+              <div className="pt-4 border-t border-gray-200">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Activity History</h4>
+                {loadingActivityLogs ? (
+                  <div className="text-center py-4 text-gray-500 text-sm">Loading...</div>
+                ) : golferActivityLogs.length === 0 ? (
+                  <div className="text-center py-4 text-gray-400 text-sm">No activity recorded</div>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {golferActivityLogs.map(log => (
+                      <div key={log.id} className="flex items-start gap-2 text-sm bg-gray-50 rounded-lg p-2">
+                        <div className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-gray-700">{log.details}</p>
+                          <p className="text-xs text-gray-400">
+                            {new Date(log.created_at).toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              hour12: true,
+                              timeZone: 'Pacific/Guam'
+                            })} • {log.admin_name}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Delete Section */}

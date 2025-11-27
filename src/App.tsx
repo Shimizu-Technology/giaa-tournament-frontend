@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import {
@@ -12,6 +11,7 @@ import {
   GroupManagementPage,
   CheckInPage,
   AdminSettingsPage,
+  ReportsPage,
 } from './pages';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -60,6 +60,14 @@ function App() {
           element={
             <ProtectedRoute>
               <AdminSettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/reports"
+          element={
+            <ProtectedRoute>
+              <ReportsPage />
             </ProtectedRoute>
           }
         />

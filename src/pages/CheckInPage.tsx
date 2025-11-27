@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { Card, Button, Input, Select } from '../components/ui';
 import { Search, CheckCircle, DollarSign, User, RefreshCw, X, UserCheck, CreditCard, Users } from 'lucide-react';
-import { api, Golfer, GolferStats } from '../services/api';
+import { api, Golfer, GolferStats, ActivityLog } from '../services/api';
 
 interface PaymentInfo {
   method: 'cash' | 'check' | 'credit';
@@ -23,7 +23,9 @@ const PlayerDetailPanel: React.FC<{
   onClose: () => void;
   showCloseButton?: boolean;
   entryFee?: number;
-}> = ({ golfer, paymentInfo, setPaymentInfo, isProcessing, onCheckIn, onRecordPayment, onClose, showCloseButton = true, entryFee = 125 }) => {
+  activityLogs?: ActivityLog[];
+  loadingActivityLogs?: boolean;
+}> = ({ golfer, paymentInfo, setPaymentInfo, isProcessing, onCheckIn, onRecordPayment, onClose, showCloseButton = true, entryFee = 125, activityLogs = [], loadingActivityLogs = false }) => {
   return (
     <div className="space-y-4 lg:space-y-6">
       <div className="flex items-center gap-3 lg:gap-4">
@@ -218,6 +220,37 @@ const PlayerDetailPanel: React.FC<{
           </div>
         </>
       )}
+
+      {/* Activity History */}
+      <div className="pt-4 border-t border-gray-200 mt-4">
+        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Activity History</h4>
+        {loadingActivityLogs ? (
+          <div className="text-center py-3 text-gray-500 text-sm">Loading...</div>
+        ) : activityLogs.length === 0 ? (
+          <div className="text-center py-3 text-gray-400 text-sm">No activity recorded</div>
+        ) : (
+          <div className="space-y-2 max-h-40 overflow-y-auto">
+            {activityLogs.map(log => (
+              <div key={log.id} className="flex items-start gap-2 text-sm bg-gray-50 rounded-lg p-2">
+                <div className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-gray-700 text-xs">{log.details}</p>
+                  <p className="text-xs text-gray-400">
+                    {new Date(log.created_at).toLocaleString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true,
+                      timeZone: 'Pacific/Guam'
+                    })} • {log.admin_name}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -232,6 +265,8 @@ export const CheckInPage: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeQueue, setActiveQueue] = useState<CheckInQueue>('paid');
+  const [golferActivityLogs, setGolferActivityLogs] = useState<ActivityLog[]>([]);
+  const [loadingActivityLogs, setLoadingActivityLogs] = useState(false);
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo>({
     method: 'cash',
     receiptNumber: '',
@@ -310,14 +345,6 @@ export const CheckInPage: React.FC = () => {
     return filtered;
   }, [golfers, searchTerm, activeQueue]);
 
-  const handleSelectGolfer = (golfer: Golfer) => {
-    setSelectedGolfer(golfer);
-    setPaymentInfo({
-      method: 'cash',
-      receiptNumber: '',
-      notes: '',
-    });
-  };
 
   const handleRecordPayment = async () => {
     if (!selectedGolfer) return;
@@ -376,6 +403,26 @@ export const CheckInPage: React.FC = () => {
 
   const handleClearSelection = () => {
     setSelectedGolfer(null);
+    setGolferActivityLogs([]);
+  };
+
+  const handleSelectGolfer = async (golfer: Golfer) => {
+    setSelectedGolfer(golfer);
+    setPaymentInfo({
+      method: 'cash',
+      receiptNumber: '',
+      notes: '',
+    });
+    setGolferActivityLogs([]);
+    setLoadingActivityLogs(true);
+    try {
+      const response = await api.getGolferActivityHistory(golfer.id);
+      setGolferActivityLogs(response.activity_logs);
+    } catch (err) {
+      console.error('Error fetching activity logs:', err);
+    } finally {
+      setLoadingActivityLogs(false);
+    }
   };
 
   const getQueueTitle = () => {
@@ -638,6 +685,8 @@ export const CheckInPage: React.FC = () => {
                 onClose={handleClearSelection}
                 showCloseButton={true}
                 entryFee={stats?.entry_fee_dollars ?? 125}
+                activityLogs={golferActivityLogs}
+                loadingActivityLogs={loadingActivityLogs}
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-full py-16 text-center">
@@ -695,6 +744,8 @@ export const CheckInPage: React.FC = () => {
                 onClose={handleClearSelection}
                 showCloseButton={false}
                 entryFee={stats?.entry_fee_dollars ?? 125}
+                activityLogs={golferActivityLogs}
+                loadingActivityLogs={loadingActivityLogs}
               />
             </div>
           </div>

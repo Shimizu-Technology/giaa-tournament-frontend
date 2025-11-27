@@ -8,3 +8,4 @@ export { AdminDashboard } from './AdminDashboard';
 export { GroupManagementPage } from './GroupManagementPage';
 export { CheckInPage } from './CheckInPage';
 export { AdminSettingsPage } from './AdminSettingsPage';
+export { ReportsPage } from './ReportsPage';

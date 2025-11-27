@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { UserButton, useUser } from '@clerk/clerk-react';
-import { Trophy, LayoutDashboard, Users, ClipboardCheck, Settings, Home, Menu, X } from 'lucide-react';
+import { Trophy, LayoutDashboard, Users, ClipboardCheck, Settings, Home, Menu, X, BarChart3 } from 'lucide-react';
 import { api } from '../services/api';
 
 interface AdminLayoutProps {
@@ -25,6 +25,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     { path: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/admin/groups', icon: Users, label: 'Groups' },
     { path: '/admin/checkin', icon: ClipboardCheck, label: 'Check-In' },
+    { path: '/admin/reports', icon: BarChart3, label: 'Reports' },
     { path: '/admin/settings', icon: Settings, label: 'Settings' },
   ];
 

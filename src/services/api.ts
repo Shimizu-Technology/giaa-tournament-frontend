@@ -50,6 +50,27 @@ export interface Admin {
   is_super_admin: boolean;
 }
 
+export interface ActivityLog {
+  id: number;
+  action: string;
+  target_type: string | null;
+  target_id: number | null;
+  target_name: string | null;
+  details: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  admin_name: string;
+  admin_email: string | null;
+}
+
+export interface ActivityLogSummary {
+  today_count: number;
+  total_count: number;
+  by_action: Record<string, number>;
+  by_admin: Record<string, number>;
+  daily_activity: Record<string, number>;
+}
+
 export interface Settings {
   id: number;
   max_capacity: number;
@@ -437,6 +458,39 @@ class ApiClient {
     amount_total: number | null;
   }> {
     return this.request(`/api/v1/checkout/session/${sessionId}`, {}, false);
+  }
+
+  // Activity Logs
+  async getActivityLogs(params?: {
+    page?: number;
+    per_page?: number;
+    admin_id?: number;
+    action_type?: string;
+    target_type?: string;
+    target_id?: number;
+    start_date?: string;
+    end_date?: string;
+  }): Promise<{ activity_logs: ActivityLog[]; meta: { current_page: number; per_page: number; total_count: number; total_pages: number } }> {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set('page', params.page.toString());
+    if (params?.per_page) searchParams.set('per_page', params.per_page.toString());
+    if (params?.admin_id) searchParams.set('admin_id', params.admin_id.toString());
+    if (params?.action_type) searchParams.set('action_type', params.action_type);
+    if (params?.target_type) searchParams.set('target_type', params.target_type);
+    if (params?.target_id) searchParams.set('target_id', params.target_id.toString());
+    if (params?.start_date) searchParams.set('start_date', params.start_date);
+    if (params?.end_date) searchParams.set('end_date', params.end_date);
+    
+    const query = searchParams.toString();
+    return this.request(`/api/v1/activity_logs${query ? `?${query}` : ''}`);
+  }
+
+  async getActivityLogSummary(): Promise<ActivityLogSummary> {
+    return this.request('/api/v1/activity_logs/summary');
+  }
+
+  async getGolferActivityHistory(golferId: number): Promise<{ activity_logs: ActivityLog[]; golfer_id: number; golfer_name: string }> {
+    return this.request(`/api/v1/activity_logs/golfer/${golferId}`);
   }
 }
 
