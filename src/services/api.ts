@@ -130,6 +130,13 @@ export interface CheckoutSession {
   test_mode?: boolean;
 }
 
+export interface EmbeddedCheckoutSession {
+  client_secret: string;
+  session_id: string;
+  test_mode?: boolean;
+  error?: string;
+}
+
 export interface PaymentConfirmation {
   success: boolean;
   golfer: Golfer;
@@ -157,6 +164,10 @@ export interface RegistrationStatus {
   location_name: string;
   location_address: string;
   format_name: string;
+  // Stripe configuration
+  stripe_configured: boolean;
+  stripe_public_key: string | null;
+  payment_mode: string;
   fee_includes: string;
   checks_payable_to: string;
   contact_name: string;
@@ -564,6 +575,20 @@ class ApiClient {
     return this.request('/api/v1/checkout', {
       method: 'POST',
       body: JSON.stringify({ golfer_id: golferId }),
+    }, false);
+  }
+
+  async createEmbeddedCheckout(golferData: {
+    name: string;
+    email: string;
+    phone: string;
+    mobile?: string;
+    company?: string;
+    address?: string;
+  }): Promise<EmbeddedCheckoutSession> {
+    return this.request('/api/v1/checkout/embedded', {
+      method: 'POST',
+      body: JSON.stringify({ golfer: golferData }),
     }, false);
   }
 

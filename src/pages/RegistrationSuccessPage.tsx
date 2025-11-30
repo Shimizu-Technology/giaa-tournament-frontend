@@ -1,17 +1,54 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, Card } from '../components/ui';
-import { CheckCircle, Clock, Trophy } from 'lucide-react';
-import { api, RegistrationStatus } from '../services/api';
+import { CheckCircle, Clock, Trophy, Loader2, AlertCircle } from 'lucide-react';
+import { api, RegistrationStatus, Golfer } from '../services/api';
 
 export const RegistrationSuccessPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const registration = location.state?.registration;
-  const message = location.state?.message;
+  const [searchParams] = useSearchParams();
+  
+  // State from navigation (pay on day flow)
+  const stateRegistration = location.state?.registration;
+  const stateMessage = location.state?.message;
   const paymentType = location.state?.paymentType;
   const checkoutError = location.state?.checkoutError;
+  
+  // State for handling embedded checkout return
+  const [registration, setRegistration] = useState<Golfer | null>(stateRegistration || null);
+  const [message, setMessage] = useState<string | null>(stateMessage || null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [registrationStatus, setRegistrationStatus] = useState<RegistrationStatus | null>(null);
+
+  // Handle embedded checkout return (session_id in URL)
+  useEffect(() => {
+    const sessionId = searchParams.get('session_id');
+    
+    if (sessionId && !registration) {
+      setIsLoading(true);
+      setError(null);
+      
+      // Confirm the payment and create the golfer
+      api.confirmPayment(sessionId)
+        .then((result) => {
+          if (result.success && result.golfer) {
+            setRegistration(result.golfer);
+            setMessage(result.message || 'Payment confirmed! Your registration is complete.');
+          } else {
+            setError(result.message || 'Payment confirmation failed');
+          }
+        })
+        .catch((err) => {
+          console.error('Payment confirmation error:', err);
+          setError(err instanceof Error ? err.message : 'Failed to confirm payment');
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    }
+  }, [searchParams, registration]);
 
   useEffect(() => {
     api.getRegistrationStatus()
@@ -21,6 +58,61 @@ export const RegistrationSuccessPage: React.FC = () => {
 
   const entryFee = registrationStatus?.entry_fee_dollars ?? 125;
   const isWaitlist = registration?.registration_status === 'waitlist';
+
+  // Show loading state while confirming payment
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 flex items-center justify-center">
+        <Card className="p-8 text-center max-w-md">
+          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Confirming Your Payment</h2>
+          <p className="text-gray-600">Please wait while we finalize your registration...</p>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 flex items-center justify-center p-4">
+        <Card className="p-8 text-center max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Something Went Wrong</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="space-y-3">
+            <Button onClick={() => navigate('/register')} className="w-full">
+              Try Again
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/')} className="w-full">
+              Return Home
+            </Button>
+          </div>
+          <p className="text-sm text-gray-500 mt-4">
+            If you were charged, please contact us and we'll resolve this.
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
+  // No registration data
+  if (!registration) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 flex items-center justify-center p-4">
+        <Card className="p-8 text-center max-w-md">
+          <Trophy className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">No Registration Found</h2>
+          <p className="text-gray-600 mb-6">It looks like you haven't completed registration yet.</p>
+          <Button onClick={() => navigate('/register')} className="w-full">
+            Register Now
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 relative overflow-hidden py-6 sm:py-12">

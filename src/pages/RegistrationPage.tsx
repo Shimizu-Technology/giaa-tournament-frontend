@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Input, Card } from '../components/ui';
 import { LiabilityWaiver } from '../components/LiabilityWaiver';
+import { PaymentModal } from '../components/PaymentModal';
 import { ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
 import { api, RegistrationStatus } from '../services/api';
 
@@ -21,6 +22,7 @@ export const RegistrationPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [registrationStatus, setRegistrationStatus] = useState<RegistrationStatus | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   
   // Fetch entry fee on mount
   useEffect(() => {
@@ -30,6 +32,7 @@ export const RegistrationPage: React.FC = () => {
   }, []);
 
   const entryFee = registrationStatus?.entry_fee_dollars ?? 125;
+  const stripePublicKey = registrationStatus?.stripe_public_key || '';
   
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
@@ -147,12 +150,23 @@ export const RegistrationPage: React.FC = () => {
     if (step !== 4 || !validateStep4()) {
       return;
     }
+
+    // For Stripe payments, show the embedded checkout modal
+    if (formData.paymentOption === 'pay-now') {
+      // Check if Stripe is configured
+      if (!stripePublicKey) {
+        setSubmitError('Online payment is not available at this time. Please select "Pay on Day of Tournament".');
+        return;
+      }
+      setShowPaymentModal(true);
+      return;
+    }
     
+    // For "Pay on Day", register directly
     setIsSubmitting(true);
     setSubmitError(null);
 
     try {
-      // Map frontend form data to backend API format
       const result = await api.registerGolfer({
         golfer: {
           name: formData.fullName,
@@ -160,35 +174,11 @@ export const RegistrationPage: React.FC = () => {
           address: formData.mailingAddress,
           phone: formData.phone,
           email: formData.email,
-          payment_type: formData.paymentOption === 'pay-now' ? 'stripe' : 'pay_on_day' as const,
+          payment_type: 'pay_on_day',
         },
         waiver_accepted: formData.waiverAccepted,
       });
 
-      // If user selected "Pay Now", redirect to Stripe Checkout
-      if (formData.paymentOption === 'pay-now') {
-        try {
-          const checkoutSession = await api.createCheckoutSession(result.golfer.id);
-          
-          // Redirect to Stripe Checkout
-          window.location.href = checkoutSession.checkout_url;
-          return; // Don't navigate away - we're redirecting to Stripe
-        } catch (checkoutError) {
-          console.error('Checkout error:', checkoutError);
-          // If checkout fails, still show success but with a warning
-          navigate('/registration/success', { 
-            state: { 
-              registration: result.golfer,
-              message: result.message,
-              paymentType: formData.paymentOption,
-              checkoutError: 'Unable to initiate online payment. Please contact support or pay on tournament day.',
-            } 
-          });
-          return;
-        }
-      }
-
-      // For "Pay on Day", navigate to success page
       navigate('/registration/success', { 
         state: { 
           registration: result.golfer,
@@ -202,6 +192,13 @@ export const RegistrationPage: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Handle successful payment from embedded checkout
+  const handlePaymentSuccess = (sessionId: string) => {
+    // The embedded checkout will redirect to /registration/success with session_id
+    // which will then call confirm to create the golfer
+    console.log('Payment completed, session:', sessionId);
   };
 
   // Show registration closed message
@@ -499,6 +496,24 @@ export const RegistrationPage: React.FC = () => {
           </form>
         </Card>
       </div>
+
+      {/* Stripe Payment Modal */}
+      {showPaymentModal && stripePublicKey && (
+        <PaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          onSuccess={handlePaymentSuccess}
+          golferData={{
+            name: formData.fullName,
+            email: formData.email,
+            phone: formData.phone,
+            company: formData.company || undefined,
+            address: formData.mailingAddress || undefined,
+          }}
+          entryFee={entryFee}
+          stripePublicKey={stripePublicKey}
+        />
+      )}
     </div>
   );
 };
