@@ -151,8 +151,11 @@ export const RegistrationPage: React.FC = () => {
       return;
     }
 
-    // For Stripe payments, show the embedded checkout modal
-    if (formData.paymentOption === 'pay-now') {
+    // Check if we're in test mode (simulated payments)
+    const isTestMode = registrationStatus?.payment_mode === 'test';
+
+    // For Stripe payments in PRODUCTION mode, show the embedded checkout modal
+    if (formData.paymentOption === 'pay-now' && !isTestMode) {
       // Check if Stripe is configured
       if (!stripePublicKey) {
         setSubmitError('Online payment is not available at this time. Please select "Pay on Day of Tournament".');
@@ -162,11 +165,14 @@ export const RegistrationPage: React.FC = () => {
       return;
     }
     
-    // For "Pay on Day", register directly
+    // For "Pay on Day" OR test mode "Pay Now", register directly
     setIsSubmitting(true);
     setSubmitError(null);
 
     try {
+      // In test mode with "Pay Now", register as stripe but simulate payment
+      const paymentType = formData.paymentOption === 'pay-now' ? 'stripe' : 'pay_on_day';
+      
       const result = await api.registerGolfer({
         golfer: {
           name: formData.fullName,
@@ -174,16 +180,33 @@ export const RegistrationPage: React.FC = () => {
           address: formData.mailingAddress,
           phone: formData.phone,
           email: formData.email,
-          payment_type: 'pay_on_day',
+          payment_type: paymentType,
         },
         waiver_accepted: formData.waiverAccepted,
       });
+
+      // In test mode with Stripe, simulate marking as paid
+      if (isTestMode && formData.paymentOption === 'pay-now' && result.golfer) {
+        try {
+          // Create a fake checkout session and confirm it to simulate payment
+          const checkoutResult = await api.createCheckoutSession(result.golfer.id);
+          if (checkoutResult.session_id) {
+            await api.confirmPayment(checkoutResult.session_id);
+            // Refetch the golfer to get updated payment status
+            result.golfer.payment_status = 'paid';
+          }
+        } catch (simError) {
+          console.log('Test mode payment simulation:', simError);
+          // Continue anyway - golfer is registered
+        }
+      }
 
       navigate('/registration/success', { 
         state: { 
           registration: result.golfer,
           message: result.message,
           paymentType: formData.paymentOption,
+          testMode: isTestMode,
         } 
       });
     } catch (error) {
