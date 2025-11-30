@@ -45,11 +45,11 @@ export interface Golfer {
   mobile: string | null;
   email: string;
   payment_type: 'stripe' | 'pay_on_day';
-  payment_status: 'paid' | 'unpaid';
+  payment_status: 'paid' | 'unpaid' | 'refunded';
   waiver_accepted_at: string | null;
   waiver_signed: boolean;
   checked_in_at: string | null;
-  registration_status: 'confirmed' | 'waitlist';
+  registration_status: 'confirmed' | 'waitlist' | 'cancelled';
   group_id: number | null;
   hole_number: number | null;
   position: number | null;
@@ -62,6 +62,20 @@ export interface Golfer {
   group_position_label: string | null;
   checked_in: boolean;
   group?: Group | null;
+  // Refund/cancel fields
+  stripe_card_brand: string | null;
+  stripe_card_last4: string | null;
+  payment_amount_cents: number | null;
+  stripe_refund_id: string | null;
+  refund_amount_cents: number | null;
+  refund_reason: string | null;
+  refunded_at: string | null;
+  refunded_by_name: string | null;
+  can_refund: boolean;
+  can_cancel: boolean;
+  cancelled: boolean;
+  refunded: boolean;
+  formatted_payment_timestamp: string | null;
 }
 
 export interface Group {
@@ -437,6 +451,27 @@ class ApiClient {
     return this.request(`/api/v1/golfers/${id}/update_payment_status`, {
       method: 'POST',
       body: JSON.stringify({ payment_status: paymentStatus }),
+    });
+  }
+
+  async cancelGolfer(id: number, reason?: string): Promise<Golfer> {
+    return this.request(`/api/v1/golfers/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async refundGolfer(id: number, reason?: string): Promise<{ success: boolean; golfer: Golfer; refund: { id: string; amount: number; status: string }; message: string }> {
+    return this.request(`/api/v1/golfers/${id}/refund`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async markGolferRefunded(id: number, reason?: string, refundAmountCents?: number): Promise<Golfer> {
+    return this.request(`/api/v1/golfers/${id}/mark_refunded`, {
+      method: 'POST',
+      body: JSON.stringify({ reason, refund_amount_cents: refundAmountCents }),
     });
   }
 

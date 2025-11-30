@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { Card, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Select } from '../components/ui';
-import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText, Trash2, UserPlus, Calendar, FileSpreadsheet, ArrowUpCircle } from 'lucide-react';
+import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText, UserPlus, Calendar, FileSpreadsheet, ArrowUpCircle, Ban, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api, Golfer, GolferStats, ActivityLog } from '../services/api';
 import { AddGolferModal } from '../components/AddGolferModal';
@@ -40,8 +40,11 @@ export const AdminDashboard: React.FC = () => {
   const [holeFilter, setHoleFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedGolfer, setSelectedGolfer] = useState<Golfer | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showRefundConfirm, setShowRefundConfirm] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [isRefunding, setIsRefunding] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
@@ -109,6 +112,8 @@ export const AdminDashboard: React.FC = () => {
         const filterValue = paymentMethodFilter === 'pay-now' ? 'stripe' : 'pay_on_day';
         if (golfer.payment_type !== filterValue) return false;
       }
+      // Status filter - when "all", exclude cancelled (show only active)
+      if (statusFilter === 'all' && golfer.registration_status === 'cancelled') return false;
       if (statusFilter !== 'all' && golfer.registration_status !== statusFilter) return false;
       if (checkinFilter !== 'all') {
         const isCheckedIn = checkinFilter === 'checked-in';
@@ -410,21 +415,45 @@ export const AdminDashboard: React.FC = () => {
     downloadExcel(wb, 'tournament-all-reports');
   };
 
-  const handleDeleteGolfer = async () => {
+  const handleCancelGolfer = async () => {
     if (!selectedGolfer) return;
     
-    setIsDeleting(true);
+    setIsCancelling(true);
     try {
-      await api.deleteGolfer(selectedGolfer.id);
-      toast.success(`${selectedGolfer.name} has been removed`);
-      setSelectedGolfer(null);
-      setShowDeleteConfirm(false);
-      fetchData(); // Refresh the list
+      const updatedGolfer = await api.cancelGolfer(selectedGolfer.id, cancelReason || undefined);
+      toast.success(`${selectedGolfer.name}'s registration has been cancelled`);
+      setSelectedGolfer(updatedGolfer);
+      setShowCancelConfirm(false);
+      setCancelReason('');
+      fetchData();
+      const response = await api.getGolferActivityHistory(updatedGolfer.id);
+      setGolferActivityLogs(response.activity_logs);
     } catch (err) {
-      console.error('Error deleting golfer:', err);
-      toast.error('Failed to delete golfer');
+      console.error('Error cancelling golfer:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to cancel registration');
     } finally {
-      setIsDeleting(false);
+      setIsCancelling(false);
+    }
+  };
+
+  const handleRefundGolfer = async () => {
+    if (!selectedGolfer) return;
+    
+    setIsRefunding(true);
+    try {
+      const result = await api.refundGolfer(selectedGolfer.id, cancelReason || undefined);
+      toast.success(`Refunded $${(result.refund.amount / 100).toFixed(2)} to ${selectedGolfer.name}`);
+      setSelectedGolfer(result.golfer);
+      setShowRefundConfirm(false);
+      setCancelReason('');
+      fetchData();
+      const response = await api.getGolferActivityHistory(result.golfer.id);
+      setGolferActivityLogs(response.activity_logs);
+    } catch (err) {
+      console.error('Error refunding golfer:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to process refund');
+    } finally {
+      setIsRefunding(false);
     }
   };
 
@@ -907,9 +936,10 @@ export const AdminDashboard: React.FC = () => {
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 options={[
-                  { value: 'all', label: 'All' },
+                  { value: 'all', label: 'All Active' },
                   { value: 'confirmed', label: 'Confirmed' },
                   { value: 'waitlist', label: 'Waitlist' },
+                  { value: 'cancelled', label: 'Cancelled' },
                 ]}
               />
 
@@ -985,14 +1015,19 @@ export const AdminDashboard: React.FC = () => {
                       <div className="flex flex-col items-end gap-1 ml-2">
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                            golfer.payment_status === 'paid'
+                            golfer.payment_status === 'refunded'
+                              ? 'bg-purple-100 text-purple-800'
+                              : golfer.payment_status === 'paid'
                               ? 'bg-green-100 text-green-800'
                               : 'bg-amber-100 text-amber-800'
                           }`}
                         >
-                          {golfer.payment_status === 'paid' ? 'Paid' : 'Unpaid'}
+                          {golfer.payment_status === 'refunded' ? 'Refunded' : golfer.payment_status === 'paid' ? 'Paid' : 'Unpaid'}
                         </span>
-                        {golfer.checked_in && (
+                        {golfer.registration_status === 'cancelled' && (
+                          <span className="text-xs text-red-600 font-medium">Cancelled</span>
+                        )}
+                        {golfer.checked_in && golfer.registration_status !== 'cancelled' && (
                           <span className="text-xs text-green-600 font-medium">✓ Checked In</span>
                         )}
                       </div>
@@ -1045,23 +1080,27 @@ export const AdminDashboard: React.FC = () => {
                         <TableCell>
                           <span
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              golfer.payment_status === 'paid'
+                              golfer.payment_status === 'refunded'
+                                ? 'bg-purple-100 text-purple-800'
+                                : golfer.payment_status === 'paid'
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-amber-100 text-amber-800'
                             }`}
                           >
-                            {golfer.payment_status === 'paid' ? 'Paid' : 'Unpaid'}
+                            {golfer.payment_status === 'refunded' ? 'Refunded' : golfer.payment_status === 'paid' ? 'Paid' : 'Unpaid'}
                           </span>
                         </TableCell>
                         <TableCell>
                           <span
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              golfer.registration_status === 'confirmed'
+                              golfer.registration_status === 'cancelled'
+                                ? 'bg-red-100 text-red-800'
+                                : golfer.registration_status === 'confirmed'
                                 ? 'bg-blue-100 text-blue-800'
                                 : 'bg-gray-100 text-gray-800'
                             }`}
                           >
-                            {golfer.registration_status === 'confirmed' ? 'Confirmed' : 'Waitlist'}
+                            {golfer.registration_status === 'cancelled' ? 'Cancelled' : golfer.registration_status === 'confirmed' ? 'Confirmed' : 'Waitlist'}
                           </span>
                         </TableCell>
                         <TableCell>
@@ -1101,7 +1140,7 @@ export const AdminDashboard: React.FC = () => {
           {/* Backdrop */}
           <div 
             className="absolute inset-0 bg-black/50"
-            onClick={() => { setSelectedGolfer(null); setShowDeleteConfirm(false); }}
+            onClick={() => { setSelectedGolfer(null); setShowCancelConfirm(false); setShowRefundConfirm(false); setCancelReason(''); }}
           />
           
           {/* Modal */}
@@ -1110,7 +1149,7 @@ export const AdminDashboard: React.FC = () => {
             <div className="sticky top-0 bg-white border-b border-gray-200 px-4 lg:px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg font-bold text-gray-900">Player Details</h3>
               <button 
-                onClick={() => { setSelectedGolfer(null); setShowDeleteConfirm(false); }}
+                onClick={() => { setSelectedGolfer(null); setShowCancelConfirm(false); setShowRefundConfirm(false); setCancelReason(''); }}
                 className="p-2 rounded-full hover:bg-gray-100 transition-colors"
               >
                 <X size={20} />
@@ -1141,14 +1180,16 @@ export const AdminDashboard: React.FC = () => {
                   <div className="flex items-center gap-2 mt-1">
                     <span
                       className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        selectedGolfer.registration_status === 'confirmed'
+                        selectedGolfer.registration_status === 'cancelled'
+                          ? 'bg-red-100 text-red-800'
+                          : selectedGolfer.registration_status === 'confirmed'
                           ? 'bg-blue-100 text-blue-800'
                           : 'bg-gray-100 text-gray-800'
                       }`}
                     >
-                      {selectedGolfer.registration_status === 'confirmed' ? 'Confirmed' : 'Waitlist'}
+                      {selectedGolfer.registration_status === 'cancelled' ? 'Cancelled' : selectedGolfer.registration_status === 'confirmed' ? 'Confirmed' : 'Waitlist'}
                     </span>
-                    {selectedGolfer.checked_in && (
+                    {selectedGolfer.checked_in && selectedGolfer.registration_status !== 'cancelled' && (
                       <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium">
                         <CheckCircle size={12} /> Checked In
                       </span>
@@ -1213,26 +1254,35 @@ export const AdminDashboard: React.FC = () => {
               <div className="space-y-3">
                 <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Payment</h4>
                 <div className={`p-4 rounded-lg border-2 ${
-                  selectedGolfer.payment_status === 'paid'
+                  selectedGolfer.payment_status === 'refunded'
+                    ? 'bg-purple-50 border-purple-200'
+                    : selectedGolfer.payment_status === 'paid'
                     ? 'bg-green-50 border-green-200'
                     : 'bg-amber-50 border-amber-200'
                 }`}>
                   <div className="flex items-center gap-2 mb-2">
-                    {selectedGolfer.payment_status === 'paid' ? (
+                    {selectedGolfer.payment_status === 'refunded' ? (
+                      <RotateCcw className="text-purple-600" size={20} />
+                    ) : selectedGolfer.payment_status === 'paid' ? (
                       <CheckCircle className="text-green-600" size={20} />
                     ) : (
                       <CreditCard className="text-amber-600" size={20} />
                     )}
                     <span className={`font-semibold ${
+                      selectedGolfer.payment_status === 'refunded' ? 'text-purple-800' : 
                       selectedGolfer.payment_status === 'paid' ? 'text-green-800' : 'text-amber-800'
                     }`}>
-                      {selectedGolfer.payment_status === 'paid' ? 'Payment Complete' : 'Payment Pending'}
+                      {selectedGolfer.payment_status === 'refunded' ? 'Refunded' : 
+                       selectedGolfer.payment_status === 'paid' ? 'Payment Complete' : 'Payment Pending'}
                     </span>
                   </div>
                   <p className={`text-sm ${
+                    selectedGolfer.payment_status === 'refunded' ? 'text-purple-700' :
                     selectedGolfer.payment_status === 'paid' ? 'text-green-700' : 'text-amber-700'
                   }`}>
-                    {selectedGolfer.payment_status === 'paid'
+                    {selectedGolfer.payment_status === 'refunded'
+                      ? `Refunded $${((selectedGolfer.refund_amount_cents || 0) / 100).toFixed(2)}`
+                      : selectedGolfer.payment_status === 'paid'
                       ? selectedGolfer.payment_type === 'stripe'
                         ? 'Paid online via Stripe'
                         : 'Paid on day of tournament'
@@ -1248,7 +1298,18 @@ export const AdminDashboard: React.FC = () => {
                       {selectedGolfer.payment_method && (
                         <div className="flex justify-between">
                           <span className="text-green-600">Method:</span>
-                          <span className="text-green-800 font-medium capitalize">{selectedGolfer.payment_method}</span>
+                          <span className="text-green-800 font-medium capitalize">
+                            {selectedGolfer.payment_method}
+                            {selectedGolfer.stripe_card_brand && selectedGolfer.stripe_card_last4 && (
+                              <span> ({selectedGolfer.stripe_card_brand} •••• {selectedGolfer.stripe_card_last4})</span>
+                            )}
+                          </span>
+                        </div>
+                      )}
+                      {selectedGolfer.payment_amount_cents && (
+                        <div className="flex justify-between">
+                          <span className="text-green-600">Amount:</span>
+                          <span className="text-green-800 font-medium">${(selectedGolfer.payment_amount_cents / 100).toFixed(2)}</span>
                         </div>
                       )}
                       {selectedGolfer.receipt_number && (
@@ -1260,7 +1321,43 @@ export const AdminDashboard: React.FC = () => {
                       {selectedGolfer.payment_notes && (
                         <div className="mt-2">
                           <span className="text-green-600 block mb-1">Notes:</span>
-                          <p className="text-green-800 bg-green-100/50 p-2 rounded text-xs">{selectedGolfer.payment_notes}</p>
+                          <p className="text-green-800 bg-green-100/50 p-2 rounded text-xs whitespace-pre-wrap">{selectedGolfer.payment_notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Refund Details - shown when refunded */}
+                  {selectedGolfer.payment_status === 'refunded' && (
+                    <div className="mt-3 pt-3 border-t border-purple-200 space-y-2 text-sm">
+                      {selectedGolfer.stripe_refund_id && (
+                        <div className="flex justify-between">
+                          <span className="text-purple-600">Refund ID:</span>
+                          <span className="text-purple-800 font-medium text-xs">{selectedGolfer.stripe_refund_id}</span>
+                        </div>
+                      )}
+                      {selectedGolfer.refunded_at && (
+                        <div className="flex justify-between">
+                          <span className="text-purple-600">Refunded:</span>
+                          <span className="text-purple-800 font-medium">
+                            {new Date(selectedGolfer.refunded_at).toLocaleDateString('en-US', {
+                              month: 'short', day: 'numeric', year: 'numeric',
+                              hour: 'numeric', minute: '2-digit', hour12: true,
+                              timeZone: 'Pacific/Guam'
+                            })}
+                          </span>
+                        </div>
+                      )}
+                      {selectedGolfer.refunded_by_name && (
+                        <div className="flex justify-between">
+                          <span className="text-purple-600">By:</span>
+                          <span className="text-purple-800 font-medium">{selectedGolfer.refunded_by_name}</span>
+                        </div>
+                      )}
+                      {selectedGolfer.refund_reason && (
+                        <div className="mt-2">
+                          <span className="text-purple-600 block mb-1">Reason:</span>
+                          <p className="text-purple-800 bg-purple-100/50 p-2 rounded text-xs">{selectedGolfer.refund_reason}</p>
                         </div>
                       )}
                     </div>
@@ -1588,40 +1685,105 @@ export const AdminDashboard: React.FC = () => {
                 )}
               </div>
 
-              {/* Delete Section */}
-              <div className="pt-4 border-t border-gray-200">
-                {!showDeleteConfirm ? (
-                  <button
-                    onClick={() => setShowDeleteConfirm(true)}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
-                  >
-                    <Trash2 size={16} />
-                    Remove Golfer
-                  </button>
-                ) : (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <p className="text-sm text-red-800 font-medium mb-3">
-                      Are you sure you want to remove {selectedGolfer.name}? This cannot be undone.
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setShowDeleteConfirm(false)}
-                        disabled={isDeleting}
-                        className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleDeleteGolfer}
-                        disabled={isDeleting}
-                        className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
-                      >
-                        {isDeleting ? 'Removing...' : 'Yes, Remove'}
-                      </button>
+              {/* Cancel/Refund Section - only show for active golfers */}
+              {selectedGolfer.registration_status !== 'cancelled' && (
+                <div className="pt-4 border-t border-gray-200">
+                  {!showCancelConfirm && !showRefundConfirm ? (
+                    <div className="space-y-2">
+                      {/* Show refund button for Stripe paid golfers */}
+                      {selectedGolfer.can_refund && (
+                        <button
+                          onClick={() => setShowRefundConfirm(true)}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors text-sm font-medium border border-purple-200"
+                        >
+                          <RotateCcw size={16} />
+                          Refund & Cancel
+                        </button>
+                      )}
+                      {/* Show cancel button for non-Stripe or unpaid golfers */}
+                      {selectedGolfer.can_cancel && !selectedGolfer.can_refund && (
+                        <button
+                          onClick={() => setShowCancelConfirm(true)}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium border border-red-200"
+                        >
+                          <Ban size={16} />
+                          Cancel Registration
+                        </button>
+                      )}
+                      {/* For Stripe paid, show message if they need to refund first */}
+                      {selectedGolfer.payment_status === 'paid' && selectedGolfer.payment_type === 'stripe' && !selectedGolfer.can_refund && (
+                        <p className="text-xs text-gray-500 text-center">
+                          Use "Refund & Cancel" to process a Stripe refund and cancel this registration.
+                        </p>
+                      )}
                     </div>
-                  </div>
-                )}
-              </div>
+                  ) : showRefundConfirm ? (
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                      <p className="text-sm text-purple-800 font-medium mb-3">
+                        Refund ${stats?.entry_fee_dollars?.toFixed(2) ?? '125.00'} to {selectedGolfer.name} and cancel their registration?
+                      </p>
+                      <div className="mb-3">
+                        <label className="block text-xs text-purple-700 mb-1">Reason (optional)</label>
+                        <input
+                          type="text"
+                          value={cancelReason}
+                          onChange={(e) => setCancelReason(e.target.value)}
+                          placeholder="e.g., Customer requested refund"
+                          className="w-full px-3 py-2 border border-purple-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { setShowRefundConfirm(false); setCancelReason(''); }}
+                          disabled={isRefunding}
+                          className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                        >
+                          Back
+                        </button>
+                        <button
+                          onClick={handleRefundGolfer}
+                          disabled={isRefunding}
+                          className="flex-1 px-3 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
+                        >
+                          {isRefunding ? 'Processing...' : 'Process Refund'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <p className="text-sm text-red-800 font-medium mb-3">
+                        Cancel {selectedGolfer.name}'s registration? They will be notified via email.
+                      </p>
+                      <div className="mb-3">
+                        <label className="block text-xs text-red-700 mb-1">Reason (optional)</label>
+                        <input
+                          type="text"
+                          value={cancelReason}
+                          onChange={(e) => setCancelReason(e.target.value)}
+                          placeholder="e.g., Customer requested cancellation"
+                          className="w-full px-3 py-2 border border-red-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { setShowCancelConfirm(false); setCancelReason(''); }}
+                          disabled={isCancelling}
+                          className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                        >
+                          Back
+                        </button>
+                        <button
+                          onClick={handleCancelGolfer}
+                          disabled={isCancelling}
+                          className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+                        >
+                          {isCancelling ? 'Cancelling...' : 'Yes, Cancel'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
