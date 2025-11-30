@@ -15,40 +15,49 @@ export const RegistrationSuccessPage: React.FC = () => {
   const paymentType = location.state?.paymentType;
   const checkoutError = location.state?.checkoutError;
   
+  // Check if we're coming from a Stripe redirect (has session_id)
+  const sessionId = searchParams.get('session_id');
+  const needsConfirmation = !!sessionId && !stateRegistration;
+  
   // State for handling embedded checkout return
   const [registration, setRegistration] = useState<Golfer | null>(stateRegistration || null);
   const [message, setMessage] = useState<string | null>(stateMessage || null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(needsConfirmation); // Start loading if we have session_id
   const [error, setError] = useState<string | null>(null);
   const [registrationStatus, setRegistrationStatus] = useState<RegistrationStatus | null>(null);
+  const [confirmAttempted, setConfirmAttempted] = useState(false);
 
   // Handle embedded checkout return (session_id in URL)
   useEffect(() => {
-    const sessionId = searchParams.get('session_id');
-    
-    if (sessionId && !registration) {
-      setIsLoading(true);
-      setError(null);
-      
-      // Confirm the payment and create the golfer
-      api.confirmPayment(sessionId)
-        .then((result) => {
-          if (result.success && result.golfer) {
-            setRegistration(result.golfer);
-            setMessage(result.message || 'Payment confirmed! Your registration is complete.');
-          } else {
-            setError(result.message || 'Payment confirmation failed');
-          }
-        })
-        .catch((err) => {
-          console.error('Payment confirmation error:', err);
-          setError(err instanceof Error ? err.message : 'Failed to confirm payment');
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
+    // Only run once and only if we have a session_id
+    if (!sessionId || confirmAttempted || stateRegistration) {
+      return;
     }
-  }, [searchParams, registration]);
+    
+    console.log('[SuccessPage] Confirming payment for session:', sessionId);
+    setConfirmAttempted(true);
+    setIsLoading(true);
+    setError(null);
+    
+    // Confirm the payment and create the golfer
+    api.confirmPayment(sessionId)
+      .then((result) => {
+        console.log('[SuccessPage] Confirm result:', result);
+        if (result.success && result.golfer) {
+          setRegistration(result.golfer);
+          setMessage(result.message || 'Payment confirmed! Your registration is complete.');
+        } else {
+          setError(result.message || 'Payment confirmation failed');
+        }
+      })
+      .catch((err) => {
+        console.error('[SuccessPage] Payment confirmation error:', err);
+        setError(err instanceof Error ? err.message : 'Failed to confirm payment');
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [sessionId, confirmAttempted, stateRegistration]);
 
   useEffect(() => {
     api.getRegistrationStatus()

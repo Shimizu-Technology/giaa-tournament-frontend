@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import {
   EmbeddedCheckoutProvider,
@@ -31,10 +32,14 @@ export function PaymentModal({
   entryFee,
   stripePublicKey,
 }: PaymentModalProps) {
+  const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Store the session ID for use in onComplete
+  const sessionIdRef = useRef<string | null>(null);
 
-  // Initialize Stripe
+  // Initialize Stripe (memoize to avoid recreating on each render)
   const stripePromise = loadStripe(stripePublicKey);
 
   // Fetch client secret from backend
@@ -43,37 +48,56 @@ export function PaymentModal({
     setIsLoading(true);
     
     try {
+      console.log('[PaymentModal] Creating embedded checkout session...');
       const response = await api.createEmbeddedCheckout(golferData);
       
       if (response.error) {
+        console.error('[PaymentModal] Error from API:', response.error);
         setError(response.error);
         return '';
       }
+      
+      // Store the session ID for later use
+      sessionIdRef.current = response.session_id;
+      console.log('[PaymentModal] Session created:', response.session_id);
       
       setIsLoading(false);
       return response.client_secret;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to initialize payment';
+      console.error('[PaymentModal] Exception:', message);
       setError(message);
       setIsLoading(false);
       return '';
     }
   }, [golferData]);
 
-  // Handle checkout completion
-  const handleComplete = useCallback(async () => {
-    // The EmbeddedCheckout will redirect to return_url automatically
-    // But we can also handle it here if needed
-  }, []);
+  // Handle checkout completion - navigate to success page
+  const handleComplete = useCallback(() => {
+    console.log('[PaymentModal] Payment complete! Session:', sessionIdRef.current);
+    
+    const sessionId = sessionIdRef.current;
+    if (sessionId) {
+      // Call the success callback
+      onSuccess(sessionId);
+      
+      // Navigate to success page with session_id
+      // This ensures the golfer gets created and emails sent
+      navigate(`/registration/success?session_id=${sessionId}`);
+    } else {
+      console.error('[PaymentModal] No session ID available after completion');
+      // Still try to navigate to success page
+      navigate('/registration/success');
+    }
+  }, [navigate, onSuccess]);
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      {/* Backdrop */}
+      {/* Backdrop - don't close on click during payment */}
       <div 
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
       />
 
       {/* Modal */}
@@ -97,6 +121,7 @@ export function PaymentModal({
             <button
               onClick={onClose}
               className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Cancel payment"
             >
               <X className="w-5 h-5" />
             </button>
@@ -121,7 +146,10 @@ export function PaymentModal({
                   <p className="text-sm font-medium text-red-800">Payment Error</p>
                   <p className="text-sm text-red-600 mt-1">{error}</p>
                   <button
-                    onClick={() => setError(null)}
+                    onClick={() => {
+                      setError(null);
+                      setIsLoading(true);
+                    }}
                     className="mt-2 text-sm text-red-700 hover:text-red-800 font-medium"
                   >
                     Try Again
@@ -165,4 +193,3 @@ export function PaymentModal({
     </div>
   );
 }
-
