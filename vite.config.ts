@@ -8,18 +8,28 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon-512.png'],
+      includeAssets: ['favicon.svg', 'icon-512.png', 'icon-192.png', 'robots.txt', 'sitemap.xml'],
       manifest: {
-        name: 'GIAA Golf Tournament',
+        name: 'GIAA Golf Tournament - Edward A.P. Muna II Memorial',
         short_name: 'GIAA Golf',
-        description: 'Edward A.P. Muna II Memorial Golf Tournament Registration',
+        description: 'Register for the Edward A.P. Muna II Memorial Golf Tournament presented by GIAA during Airport Week on Guam.',
         theme_color: '#1e3a5f',
         background_color: '#1e3a5f',
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
         start_url: '/',
+        id: '/',
+        categories: ['sports', 'golf', 'events'],
+        lang: 'en',
+        dir: 'ltr',
         icons: [
+          {
+            src: '/icon-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any'
+          },
           {
             src: '/icon-512.png',
             sizes: '512x512',
@@ -31,14 +41,8 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable'
-          },
-          {
-            src: '/icon-192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any'
           }
-        ]
+        ],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
