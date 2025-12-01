@@ -81,13 +81,17 @@ VITE_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 
 1. **Registration Flow**
    - Personal info → Payment selection → Waiver → Confirmation
+   - Stripe embedded checkout modal (no redirect)
+   - Employee discount with validated employee numbers
    - Automatic waitlist when at capacity
    - Email confirmation sent on registration
 
 2. **Admin Dashboard**
-   - Search and filter golfers
-   - Click golfer for detail modal with full history
+   - Search and filter golfers (including cancelled)
+   - Click golfer for detail modal with full activity history
    - Manage status (registration, payment, check-in)
+   - Cancel registrations and process Stripe refunds
+   - Employee badge display for discounted registrations
    - Export to Excel
 
 3. **Group Management**
@@ -97,10 +101,11 @@ VITE_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
    - Bulk add players to groups
 
 4. **Check-In**
-   - Three tabs: Paid, Not Paid, Waitlist
-   - Quick payment recording
+   - Tabs: Paid, Not Paid, Waitlist
+   - Quick payment recording with method/receipt tracking
    - Promote waitlist with one click
-   - Capacity indicator
+   - Dynamic fee display (employee vs regular rate)
+   - Capacity indicator with reserved slots
 
 5. **Reports**
    - Interactive data tables

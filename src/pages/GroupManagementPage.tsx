@@ -147,7 +147,10 @@ export const GroupManagementPage: React.FC = () => {
         api.getGroups(),
       ]);
       
-      setUnassigned(golfersResponse.golfers);
+      // Filter out cancelled and waitlist golfers - they shouldn't be assignable to groups
+      setUnassigned(golfersResponse.golfers.filter(g => 
+        g.registration_status !== 'cancelled' && g.registration_status !== 'waitlist'
+      ));
       // Sort groups by group_number in descending order (newest first)
       const sortedGroups = [...groupsData].sort((a, b) => b.group_number - a.group_number);
       setGroups(sortedGroups);

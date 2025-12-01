@@ -656,16 +656,19 @@ export const CheckInPage: React.FC = () => {
           <div className="flex items-center gap-3">
             {/* Capacity Indicator */}
             {stats && (
-              <div className={`px-3 py-1.5 rounded-full text-xs font-medium ${
-                stats.at_capacity 
-                  ? 'bg-red-100 text-red-700' 
-                  : stats.capacity_remaining <= 5 
-                    ? 'bg-amber-100 text-amber-700'
-                    : 'bg-green-100 text-green-700'
-              }`}>
-                {stats.at_capacity 
-                  ? '⚠️ At Capacity' 
-                  : `${stats.capacity_remaining} spots left`}
+              <div className="flex items-center gap-2">
+                <div className={`px-3 py-1.5 rounded-full text-xs font-medium ${
+                  stats.at_capacity 
+                    ? 'bg-red-100 text-red-700' 
+                    : stats.capacity_remaining <= 5 
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-green-100 text-green-700'
+                }`}>
+                  {stats.at_capacity 
+                    ? '⚠️ At Capacity' 
+                    : `${stats.capacity_remaining} spots left`}
+                  {stats.reserved_slots > 0 && ` (${stats.reserved_slots} reserved)`}
+                </div>
               </div>
             )}
             <Button variant="outline" onClick={fetchData} className="text-sm lg:text-base">
@@ -869,6 +872,11 @@ export const CheckInPage: React.FC = () => {
                             <p className="font-semibold text-gray-900 text-sm lg:text-base truncate">
                               {golfer.name}
                             </p>
+                            {golfer.is_employee && (
+                              <span className="text-[10px] lg:text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
+                                👤
+                              </span>
+                            )}
                             {golfer.checked_in ? (
                               <span className="text-[10px] lg:text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full flex items-center gap-1">
                                 <CheckCircle size={10} /> Done
@@ -920,7 +928,7 @@ export const CheckInPage: React.FC = () => {
                 onRecordPayment={handleRecordPayment}
                 onClose={handleClearSelection}
                 showCloseButton={true}
-                entryFee={stats?.entry_fee_dollars ?? 125}
+                entryFee={selectedGolfer?.is_employee ? (stats?.employee_entry_fee_dollars ?? 50) : (stats?.entry_fee_dollars ?? 125)}
                 activityLogs={golferActivityLogs}
                 loadingActivityLogs={loadingActivityLogs}
                 isPromoting={isPromoting}
@@ -991,7 +999,7 @@ export const CheckInPage: React.FC = () => {
                 onRecordPayment={handleRecordPayment}
                 onClose={handleClearSelection}
                 showCloseButton={false}
-                entryFee={stats?.entry_fee_dollars ?? 125}
+                entryFee={selectedGolfer?.is_employee ? (stats?.employee_entry_fee_dollars ?? 50) : (stats?.entry_fee_dollars ?? 125)}
                 activityLogs={golferActivityLogs}
                 loadingActivityLogs={loadingActivityLogs}
                 isPromoting={isPromoting}

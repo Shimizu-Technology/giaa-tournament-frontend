@@ -139,9 +139,9 @@ export const LandingPage: React.FC = () => {
                   </div>
                   <p className="text-gray-900 font-semibold text-base md:text-lg">{registrationStatus?.event_date || 'January 9, 2026'}</p>
                   <div className="mt-2 space-y-1">
-                    <p className="text-xs md:text-sm text-gray-600 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#c9a227]"></span>
-                      Registration: {registrationStatus?.registration_time || '11:00 am'}
+                    <p className="text-xs md:text-sm text-gray-600 flex items-center gap-2 whitespace-nowrap">
+                      <span className="w-2 h-2 rounded-full bg-[#c9a227] flex-shrink-0"></span>
+                      <span>Showtime/Registration: {registrationStatus?.registration_time || '11:00 am'}</span>
                     </p>
                     <p className="text-xs md:text-sm text-gray-600 flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-green-500"></span>
@@ -182,7 +182,7 @@ export const LandingPage: React.FC = () => {
                   </div>
                   <p className="text-gray-900 font-semibold text-base md:text-lg">{registrationStatus?.format_name || 'Individual Callaway'}</p>
                   <p className="text-xs md:text-sm text-gray-600 mt-2">
-                    Limited to {registrationStatus?.max_capacity ?? '...'} Players
+                    Limited to {registrationStatus?.public_capacity ?? registrationStatus?.max_capacity ?? '...'} Players
                   </p>
                   {registrationStatus && (
                     <div className="mt-2">
@@ -191,7 +191,7 @@ export const LandingPage: React.FC = () => {
                           <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
                           Registration Closed
                         </span>
-                      ) : registrationStatus.at_capacity ? (
+                      ) : registrationStatus.public_at_capacity ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">
                           <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></span>
                           Waitlist Only
@@ -199,7 +199,7 @@ export const LandingPage: React.FC = () => {
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
                           <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                          {registrationStatus.capacity_remaining} spots left
+                          {registrationStatus.public_capacity_remaining} spots left
                         </span>
                       )}
                     </div>

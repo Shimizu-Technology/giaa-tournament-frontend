@@ -65,7 +65,9 @@ export const RegistrationSuccessPage: React.FC = () => {
       .catch(console.error);
   }, []);
 
-  const entryFee = registrationStatus?.entry_fee_dollars ?? 125;
+  const regularFee = registrationStatus?.entry_fee_dollars ?? 125;
+  const employeeFee = registrationStatus?.employee_entry_fee_dollars ?? 50;
+  const entryFee = registration?.is_employee ? employeeFee : regularFee;
   const isWaitlist = registration?.registration_status === 'waitlist';
 
   // Show loading state while confirming payment
@@ -201,26 +203,35 @@ export const RegistrationSuccessPage: React.FC = () => {
                 </div>
                 <div className="flex justify-between text-sm items-center">
                   <span className="text-gray-600">Status:</span>
-                  {isWaitlist ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">
-                      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
-                      Waitlist
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                      Confirmed
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {isWaitlist ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">
+                        <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                        Waitlist
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                        Confirmed
+                      </span>
+                    )}
+                    {registration.is_employee && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+                        👤 Employee
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex justify-between text-sm items-center">
                   <span className="text-gray-600">Payment:</span>
                   {registration.payment_status === 'paid' ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                      Paid
+                      Paid{registration.is_employee && ' (Employee Rate)'}
                     </span>
                   ) : (
-                    <span className="font-medium text-gray-900">Pay on Day</span>
+                    <span className="font-medium text-gray-900">
+                      Pay on Day{registration.is_employee && ' (Employee Rate)'}
+                    </span>
                   )}
                 </div>
               </>

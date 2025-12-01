@@ -682,13 +682,16 @@ export const AdminDashboard: React.FC = () => {
             <div className="bg-white rounded-lg p-3 border border-gray-200">
               <div className="flex items-center justify-between text-xs mb-1.5">
                 <span className="text-gray-600">
-                  Capacity: <span className="font-semibold text-gray-900">{stats.confirmed}/{stats.max_capacity}</span>
+                  <span className="font-semibold text-gray-900">{stats.confirmed}/{stats.max_capacity}</span>
+                  {stats.reserved_slots > 0 && (
+                    <span className="text-gray-400 ml-1">({stats.reserved_slots} reserved)</span>
+                  )}
                 </span>
                 <span className={`font-medium ${stats.at_capacity ? 'text-amber-600' : 'text-green-600'}`}>
-                  {stats.at_capacity ? 'Full - Waitlist Only' : `${stats.capacity_remaining} spots left`}
+                  {stats.at_capacity ? 'Waitlist Only' : `${stats.capacity_remaining} open`}
                 </span>
               </div>
-              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
                 <div 
                   className={`h-full rounded-full transition-all duration-500 ${
                     stats.at_capacity ? 'bg-amber-500' : 
@@ -699,19 +702,26 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
           )}
-          <p className="text-sm text-gray-600">
-            <span className="font-semibold text-gray-900">{stats?.total || 0}</span> registered
-            <span className="mx-1.5 text-gray-300">·</span>
-            <span className="font-semibold text-purple-600">{stats?.paid || 0}</span> paid
-            <span className="mx-1.5 text-gray-300">·</span>
-            <span className="font-semibold text-teal-600">{stats?.checked_in || 0}</span> checked in
-            {(stats?.waitlist || 0) > 0 && (
-              <>
-                <span className="mx-1.5 text-gray-300">·</span>
-                <span className="font-semibold text-amber-600">{stats?.waitlist}</span> waitlist
-              </>
-            )}
-          </p>
+          
+          {/* Mobile Stats Grid */}
+          <div className="grid grid-cols-4 gap-2">
+            <div className="bg-white rounded-lg p-2 border border-gray-200 text-center">
+              <p className="text-lg font-bold text-gray-900">{stats?.total || 0}</p>
+              <p className="text-[10px] text-gray-500 leading-tight">Total</p>
+            </div>
+            <div className="bg-white rounded-lg p-2 border border-gray-200 text-center">
+              <p className="text-lg font-bold text-purple-600">{stats?.paid || 0}</p>
+              <p className="text-[10px] text-gray-500 leading-tight">Paid</p>
+            </div>
+            <div className="bg-white rounded-lg p-2 border border-gray-200 text-center">
+              <p className="text-lg font-bold text-teal-600">{stats?.checked_in || 0}</p>
+              <p className="text-[10px] text-gray-500 leading-tight">Checked In</p>
+            </div>
+            <div className="bg-white rounded-lg p-2 border border-gray-200 text-center">
+              <p className="text-lg font-bold text-amber-600">{stats?.waitlist || 0}</p>
+              <p className="text-[10px] text-gray-500 leading-tight">Waitlist</p>
+            </div>
+          </div>
         </div>
 
         {/* Desktop Header */}
@@ -808,6 +818,11 @@ export const AdminDashboard: React.FC = () => {
                       <p className="text-sm text-gray-600">Tournament Capacity</p>
                       <p className="text-2xl font-bold text-gray-900">
                         {stats.confirmed} <span className="text-lg font-normal text-gray-500">/ {stats.max_capacity}</span>
+                        {stats.reserved_slots > 0 && (
+                          <span className="text-sm font-normal text-amber-600 ml-2">
+                            ({stats.reserved_slots} reserved)
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -845,6 +860,7 @@ export const AdminDashboard: React.FC = () => {
           <Card className="bg-blue-50 border-l-4 border-blue-900">
             <h3 className="text-sm font-medium text-gray-600 mb-1">Total</h3>
             <p className="text-3xl font-bold text-blue-900">{stats?.total || 0}</p>
+            <p className="text-xs text-gray-500 mt-0.5">excl. cancelled</p>
           </Card>
           <Card className="bg-green-50 border-l-4 border-green-600">
             <h3 className="text-sm font-medium text-gray-600 mb-1">Confirmed</h3>
@@ -1009,7 +1025,14 @@ export const AdminDashboard: React.FC = () => {
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-gray-900 truncate">{golfer.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-gray-900 truncate">{golfer.name}</p>
+                          {golfer.is_employee && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                              👤
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-600 truncate">{golfer.email}</p>
                       </div>
                       <div className="flex flex-col items-end gap-1 ml-2">
@@ -1176,7 +1199,14 @@ export const AdminDashboard: React.FC = () => {
                   } size={28} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">{selectedGolfer.name}</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-gray-900">{selectedGolfer.name}</h2>
+                    {selectedGolfer.is_employee && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                        👤 Employee
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2 mt-1">
                     <span
                       className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -1287,8 +1317,8 @@ export const AdminDashboard: React.FC = () => {
                         ? 'Paid online via Stripe'
                         : 'Paid on day of tournament'
                       : selectedGolfer.payment_type === 'stripe'
-                        ? `Stripe payment pending ($${stats?.entry_fee_dollars?.toFixed(2) ?? '125.00'})`
-                        : `Will pay on day of tournament ($${stats?.entry_fee_dollars?.toFixed(2) ?? '125.00'})`
+                        ? `Stripe payment pending ($${(selectedGolfer.is_employee ? stats?.employee_entry_fee_dollars : stats?.entry_fee_dollars)?.toFixed(2) ?? '125.00'})`
+                        : `Will pay on day of tournament ($${(selectedGolfer.is_employee ? stats?.employee_entry_fee_dollars : stats?.entry_fee_dollars)?.toFixed(2) ?? '125.00'})`
                     }
                   </p>
                   

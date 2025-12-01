@@ -173,9 +173,12 @@ export const AdminSettingsPage: React.FC = () => {
                 <p className="text-sm text-gray-600">
                   {currentTournament.display_name}
                 </p>
-                <div className="flex items-center gap-4 mt-2 text-sm">
+                <div className="flex items-center gap-4 mt-2 text-sm flex-wrap">
                   <span className="text-gray-600">
                     {currentTournament.confirmed_count}/{currentTournament.max_capacity} registered
+                    {currentTournament.reserved_slots > 0 && (
+                      <span className="text-amber-600 ml-1">({currentTournament.reserved_slots} reserved)</span>
+                    )}
                   </span>
                   <span className="text-gray-600">
                     ${currentTournament.entry_fee_dollars} fee

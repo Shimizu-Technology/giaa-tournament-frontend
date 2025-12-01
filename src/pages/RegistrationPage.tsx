@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button, Input, Card } from '../components/ui';
 import { LiabilityWaiver } from '../components/LiabilityWaiver';
 import { PaymentModal } from '../components/PaymentModal';
-import { ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trophy, UserCheck, AlertCircle, CheckCircle } from 'lucide-react';
 import { api, RegistrationStatus } from '../services/api';
 
 interface FormData {
@@ -14,6 +14,8 @@ interface FormData {
   email: string;
   paymentOption: 'pay-now' | 'pay-on-day' | '';
   waiverAccepted: boolean;
+  isEmployee: boolean;
+  employeeNumber: string;
 }
 
 export const RegistrationPage: React.FC = () => {
@@ -24,15 +26,13 @@ export const RegistrationPage: React.FC = () => {
   const [registrationStatus, setRegistrationStatus] = useState<RegistrationStatus | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   
-  // Fetch entry fee on mount
-  useEffect(() => {
-    api.getRegistrationStatus()
-      .then(setRegistrationStatus)
-      .catch(console.error);
-  }, []);
-
-  const entryFee = registrationStatus?.entry_fee_dollars ?? 125;
-  const stripePublicKey = registrationStatus?.stripe_public_key || '';
+  // Employee validation state
+  const [employeeValidation, setEmployeeValidation] = useState<{
+    isValidating: boolean;
+    isValid: boolean | null;
+    error: string | null;
+    discountedFee: number | null;
+  }>({ isValidating: false, isValid: null, error: null, discountedFee: null });
   
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
@@ -42,9 +42,64 @@ export const RegistrationPage: React.FC = () => {
     email: '',
     paymentOption: '',
     waiverAccepted: false,
+    isEmployee: false,
+    employeeNumber: '',
   });
 
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
+
+  // Fetch entry fee on mount
+  useEffect(() => {
+    api.getRegistrationStatus()
+      .then(setRegistrationStatus)
+      .catch(console.error);
+  }, []);
+
+  const regularFee = registrationStatus?.entry_fee_dollars ?? 125;
+  const employeeFee = registrationStatus?.employee_entry_fee_dollars ?? 50;
+  const entryFee = (formData.isEmployee && employeeValidation.isValid) ? employeeFee : regularFee;
+  const stripePublicKey = registrationStatus?.stripe_public_key || '';
+
+  // Validate employee number when it changes
+  useEffect(() => {
+    if (!formData.isEmployee || !formData.employeeNumber.trim()) {
+      setEmployeeValidation({ isValidating: false, isValid: null, error: null, discountedFee: null });
+      return;
+    }
+
+    // Debounce the validation
+    const timeout = setTimeout(async () => {
+      setEmployeeValidation(prev => ({ ...prev, isValidating: true, error: null }));
+      
+      try {
+        const result = await api.validateEmployeeNumber(formData.employeeNumber.trim());
+        if (result.valid) {
+          setEmployeeValidation({
+            isValidating: false,
+            isValid: true,
+            error: null,
+            discountedFee: result.employee_fee_dollars || employeeFee,
+          });
+        } else {
+          setEmployeeValidation({
+            isValidating: false,
+            isValid: false,
+            error: result.error || 'Invalid employee number',
+            discountedFee: null,
+          });
+        }
+      } catch {
+        setEmployeeValidation({
+          isValidating: false,
+          isValid: false,
+          error: 'Failed to validate employee number',
+          discountedFee: null,
+        });
+      }
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [formData.isEmployee, formData.employeeNumber, employeeFee]);
 
   // Format phone number: only format when we have enough digits, allow free typing
   const formatPhoneNumber = (value: string): string => {
@@ -183,6 +238,7 @@ export const RegistrationPage: React.FC = () => {
           payment_type: paymentType,
         },
         waiver_accepted: formData.waiverAccepted,
+        employee_number: formData.isEmployee && employeeValidation.isValid ? formData.employeeNumber : undefined,
       });
 
       // In test mode with Stripe, simulate marking as paid
@@ -384,6 +440,78 @@ export const RegistrationPage: React.FC = () => {
                   error={errors.mailingAddress}
                   required
                 />
+
+                {/* Employee Discount Section */}
+                {registrationStatus?.employee_discount_available && (
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id="isEmployee"
+                        name="isEmployee"
+                        checked={formData.isEmployee}
+                        onChange={(e) => {
+                          setFormData(prev => ({ 
+                            ...prev, 
+                            isEmployee: e.target.checked,
+                            employeeNumber: e.target.checked ? prev.employeeNumber : ''
+                          }));
+                          if (!e.target.checked) {
+                            setEmployeeValidation({ isValidating: false, isValid: null, error: null, discountedFee: null });
+                          }
+                        }}
+                        className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <label htmlFor="isEmployee" className="text-sm font-medium text-blue-900 flex items-center gap-2 cursor-pointer">
+                        <UserCheck size={16} />
+                        I am a GIAA employee
+                      </label>
+                    </div>
+
+                    {formData.isEmployee && (
+                      <div className="mt-3 pl-8">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Employee Number <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            name="employeeNumber"
+                            value={formData.employeeNumber}
+                            onChange={(e) => setFormData(prev => ({ ...prev, employeeNumber: e.target.value }))}
+                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 pr-10 ${
+                              employeeValidation.isValid === true 
+                                ? 'border-green-300 focus:ring-green-500' 
+                                : employeeValidation.isValid === false 
+                                  ? 'border-red-300 focus:ring-red-500'
+                                  : 'border-gray-300 focus:ring-blue-500'
+                            }`}
+                            placeholder="Enter your employee number"
+                          />
+                          <div className="absolute right-3 top-2.5">
+                            {employeeValidation.isValidating && (
+                              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                            )}
+                            {!employeeValidation.isValidating && employeeValidation.isValid === true && (
+                              <CheckCircle className="w-5 h-5 text-green-500" />
+                            )}
+                            {!employeeValidation.isValidating && employeeValidation.isValid === false && (
+                              <AlertCircle className="w-5 h-5 text-red-500" />
+                            )}
+                          </div>
+                        </div>
+                        {employeeValidation.error && (
+                          <p className="text-sm text-red-600 mt-1">{employeeValidation.error}</p>
+                        )}
+                        {employeeValidation.isValid && (
+                          <p className="text-sm text-green-600 mt-1">
+                            ✓ Employee discount will be applied - You pay ${employeeFee.toFixed(2)}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -419,13 +547,33 @@ export const RegistrationPage: React.FC = () => {
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4">
                   Payment Selection <span className="text-red-500 text-lg">*</span>
                 </h2>
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
-                  <p className="text-base sm:text-lg font-semibold text-gray-900">
-                    Entry Fee: ${entryFee.toFixed(2)}
-                  </p>
+                <div className={`rounded-lg p-3 sm:p-4 mb-4 sm:mb-6 ${
+                  formData.isEmployee && employeeValidation.isValid 
+                    ? 'bg-green-50 border border-green-200' 
+                    : 'bg-amber-50 border border-amber-200'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <p className="text-base sm:text-lg font-semibold text-gray-900">
+                      Entry Fee: ${entryFee.toFixed(2)}
+                    </p>
+                    {formData.isEmployee && employeeValidation.isValid && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                        <UserCheck size={12} />
+                        Employee Discount
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs sm:text-sm text-gray-600 mt-1">
-                    Includes Green Fee, Ditty Bag, Drinks & Food on the Course
+                    {formData.isEmployee && employeeValidation.isValid 
+                      ? 'Green fees only (Employee rate)'
+                      : 'Includes Green Fee, Ditty Bag, Drinks & Food on the Course'
+                    }
                   </p>
+                  {formData.isEmployee && employeeValidation.isValid && (
+                    <p className="text-xs text-green-600 mt-1">
+                      <span className="line-through text-gray-400">${regularFee.toFixed(2)}</span> → ${employeeFee.toFixed(2)} (You save ${(regularFee - employeeFee).toFixed(2)})
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-3">
@@ -535,6 +683,8 @@ export const RegistrationPage: React.FC = () => {
           }}
           entryFee={entryFee}
           stripePublicKey={stripePublicKey}
+          employeeNumber={formData.isEmployee && employeeValidation.isValid ? formData.employeeNumber : undefined}
+          isEmployee={formData.isEmployee && employeeValidation.isValid}
         />
       )}
     </div>

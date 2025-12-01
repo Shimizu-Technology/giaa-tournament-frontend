@@ -14,8 +14,12 @@ export interface Tournament {
   location_name: string | null;
   location_address: string | null;
   max_capacity: number;
+  reserved_slots: number;
   entry_fee: number;
   entry_fee_dollars: number;
+  employee_entry_fee: number;
+  employee_entry_fee_dollars: number;
+  employee_numbers_count: number;
   format_name: string | null;
   fee_includes: string | null;
   checks_payable_to: string | null;
@@ -27,6 +31,9 @@ export interface Tournament {
   waitlist_count: number;
   capacity_remaining: number;
   at_capacity: boolean;
+  public_capacity: number;
+  public_capacity_remaining: number;
+  public_at_capacity: boolean;
   checked_in_count: number;
   paid_count: number;
   display_name: string;
@@ -76,6 +83,9 @@ export interface Golfer {
   cancelled: boolean;
   refunded: boolean;
   formatted_payment_timestamp: string | null;
+  // Employee fields
+  is_employee: boolean;
+  employee_number: string | null;
 }
 
 export interface Group {
@@ -88,6 +98,19 @@ export interface Group {
   golfer_count: number;
   is_full: boolean;
   golfers?: Golfer[];
+}
+
+export interface EmployeeNumber {
+  id: number;
+  tournament_id: number;
+  employee_number: string;
+  employee_name: string | null;
+  used: boolean;
+  used_by_golfer_id: number | null;
+  used_by_golfer_name: string | null;
+  display_name: string;
+  status: string;
+  created_at: string;
 }
 
 export interface Admin {
@@ -159,14 +182,24 @@ export interface PaymentConfirmation {
 
 export interface RegistrationStatus {
   tournament_id: number;
+  // Total capacity (for admin reference)
   max_capacity: number;
   confirmed_count: number;
   waitlist_count: number;
   capacity_remaining: number;
   at_capacity: boolean;
+  // Public-facing capacity (excludes reserved slots)
+  reserved_slots: number;
+  public_capacity: number;
+  public_capacity_remaining: number;
+  public_at_capacity: boolean;
   registration_open: boolean;
   entry_fee_cents: number;
   entry_fee_dollars: number;
+  // Employee discount
+  employee_entry_fee_cents: number;
+  employee_entry_fee_dollars: number;
+  employee_discount_available: boolean;
   // Tournament configuration
   tournament_year: number | string;
   tournament_edition: string;
@@ -186,9 +219,6 @@ export interface RegistrationStatus {
   checks_payable_to: string;
   contact_name: string;
   contact_phone: string;
-  // Global settings
-  stripe_configured?: boolean;
-  payment_mode?: string;
 }
 
 export interface GolferStats {
@@ -204,10 +234,14 @@ export interface GolferStats {
   assigned_to_groups: number;
   unassigned: number;
   max_capacity: number;
+  reserved_slots: number;
+  public_capacity: number;
   capacity_remaining: number;
   at_capacity: boolean;
   entry_fee_cents: number;
   entry_fee_dollars: number;
+  employee_entry_fee_cents: number;
+  employee_entry_fee_dollars: number;
 }
 
 export interface PaginationMeta {
@@ -363,7 +397,8 @@ class ApiClient {
       notes?: string;
     };
     waiver_accepted: boolean;
-  }): Promise<{ golfer: Golfer; message: string }> {
+    employee_number?: string;
+  }): Promise<{ golfer: Golfer; message: string; employee_discount_applied?: boolean }> {
     return this.request('/api/v1/golfers', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -620,10 +655,13 @@ class ApiClient {
     mobile?: string;
     company?: string;
     address?: string;
-  }): Promise<EmbeddedCheckoutSession> {
+  }, employeeNumber?: string): Promise<EmbeddedCheckoutSession> {
     return this.request('/api/v1/checkout/embedded', {
       method: 'POST',
-      body: JSON.stringify({ golfer: golferData }),
+      body: JSON.stringify({ 
+        golfer: golferData,
+        employee_number: employeeNumber,
+      }),
     }, false);
   }
 
@@ -685,6 +723,66 @@ class ApiClient {
 
   async getGolferActivityHistory(golferId: number): Promise<{ activity_logs: ActivityLog[]; golfer_id: number; golfer_name: string }> {
     return this.request(`/api/v1/activity_logs/golfer/${golferId}`);
+  }
+
+  // Employee Numbers
+  async getEmployeeNumbers(tournamentId?: number): Promise<{ 
+    employee_numbers: EmployeeNumber[]; 
+    stats: { total: number; available: number; used: number } 
+  }> {
+    const id = tournamentId || this.currentTournamentId;
+    const query = id ? `?tournament_id=${id}` : '';
+    return this.request(`/api/v1/employee_numbers${query}`);
+  }
+
+  async createEmployeeNumber(data: { employee_number: string; employee_name?: string }): Promise<EmployeeNumber> {
+    return this.request('/api/v1/employee_numbers', {
+      method: 'POST',
+      body: JSON.stringify({ employee_number: data }),
+    });
+  }
+
+  async bulkCreateEmployeeNumbers(numbers: Array<{ employee_number: string; employee_name?: string } | string>): Promise<{
+    created: number;
+    errors: Array<{ employee_number: string; errors: string[] }>;
+    employee_numbers: EmployeeNumber[];
+  }> {
+    return this.request('/api/v1/employee_numbers/bulk_create', {
+      method: 'POST',
+      body: JSON.stringify({ employee_numbers: numbers }),
+    });
+  }
+
+  async updateEmployeeNumber(id: number, data: { employee_number?: string; employee_name?: string }): Promise<EmployeeNumber> {
+    return this.request(`/api/v1/employee_numbers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ employee_number: data }),
+    });
+  }
+
+  async deleteEmployeeNumber(id: number): Promise<{ success: boolean; message: string }> {
+    return this.request(`/api/v1/employee_numbers/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async releaseEmployeeNumber(id: number): Promise<EmployeeNumber> {
+    return this.request(`/api/v1/employee_numbers/${id}/release`, {
+      method: 'POST',
+    });
+  }
+
+  async validateEmployeeNumber(employeeNumber: string): Promise<{
+    valid: boolean;
+    error?: string;
+    employee_fee?: number;
+    employee_fee_dollars?: number;
+    message?: string;
+  }> {
+    return this.request('/api/v1/employee_numbers/validate', {
+      method: 'POST',
+      body: JSON.stringify({ employee_number: employeeNumber }),
+    }, false); // No auth required
   }
 }
 

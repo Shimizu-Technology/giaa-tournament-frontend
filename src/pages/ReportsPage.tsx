@@ -81,14 +81,9 @@ export const ReportsPage: React.FC = () => {
     [filteredGolfers]
   );
 
-  // Groups sorted by hole
-  const groupsByHole = useMemo(() => {
-    return [...groups].sort((a, b) => {
-      if (!a.hole_number && !b.hole_number) return a.group_number - b.group_number;
-      if (!a.hole_number) return 1;
-      if (!b.hole_number) return -1;
-      return a.hole_number - b.hole_number;
-    });
+  // Groups sorted by group number (creation order)
+  const groupsByNumber = useMemo(() => {
+    return [...groups].sort((a, b) => a.group_number - b.group_number);
   }, [groups]);
 
   const handleExport = () => {
@@ -146,7 +141,7 @@ export const ReportsPage: React.FC = () => {
       }
       case 'groups': {
         const data: any[] = [];
-        groupsByHole.forEach(group => {
+        groupsByNumber.forEach(group => {
           data.push({
             'Group': `Group ${group.group_number}`,
             'Hole': group.hole_number ? `Hole ${group.hole_number}` : 'Unassigned',
@@ -634,7 +629,7 @@ export const ReportsPage: React.FC = () => {
                     <span className="text-xs lg:text-sm text-gray-600">{groups.length} groups</span>
                   </div>
                   <div className="p-3 lg:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[60vh] lg:max-h-none overflow-y-auto">
-                    {groupsByHole.map(group => (
+                    {groupsByNumber.map(group => (
                       <div 
                         key={group.id} 
                         className="border rounded-lg p-3 bg-white hover:shadow-md transition-shadow"
