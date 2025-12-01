@@ -361,16 +361,17 @@ export const AdminSettingsPage: React.FC = () => {
               Admin Notifications
             </h2>
             <p className="text-xs lg:text-sm text-gray-600 mb-3 lg:mb-4">
-              Set the email address for admin notifications when new golfers register.
+              Set the email address(es) for admin notifications when new golfers register.
+              Multiple emails can be separated by commas.
             </p>
 
             <Input
-              label="Admin Notification Email"
+              label="Admin Notification Email(s)"
               name="admin_email"
-              type="email"
+              type="text"
               value={settings.admin_email || ''}
               onChange={handleChange}
-              placeholder="admin@example.com"
+              placeholder="admin@example.com, admin2@example.com"
             />
           </Card>
 
