@@ -282,6 +282,21 @@ export const LandingPage: React.FC = () => {
               Staff Portal
             </button>
           </div>
+
+          {/* Shimizu Technology Credit */}
+          <div className="mt-6 pb-4">
+            <a
+              href="https://shimizu-technology.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#1e3a5f] transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <span>Built by <span className="font-medium">Shimizu Technology</span></span>
+            </a>
+          </div>
         </div>
 
         {/* Decorative golf ball in corner - desktop only */}
