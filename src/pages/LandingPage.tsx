@@ -52,33 +52,13 @@ export const LandingPage: React.FC = () => {
       )}
 
       <div className="relative z-10 container mx-auto px-4 py-6 md:py-10">
-        {/* GIAA Header */}
+        {/* GIAA Header - Official Logo */}
         <div className="text-center mb-6 md:mb-8">
-          <div className="inline-flex flex-col items-center mb-4 md:mb-6">
-            {/* GIAA Logo representation */}
-            <div className="mb-3">
-              <svg viewBox="0 0 120 60" className="w-24 md:w-32 h-auto" fill="none" xmlns="http://www.w3.org/2000/svg">
-                {/* Stylized airport terminal / latte stone icon */}
-                <rect x="45" y="20" width="30" height="35" fill="#1e3a5f" rx="2"/>
-                <rect x="50" y="25" width="8" height="10" fill="#60a5fa" rx="1"/>
-                <rect x="62" y="25" width="8" height="10" fill="#60a5fa" rx="1"/>
-                <rect x="50" y="38" width="8" height="10" fill="#60a5fa" rx="1"/>
-                <rect x="62" y="38" width="8" height="10" fill="#60a5fa" rx="1"/>
-                {/* Roof / Tower */}
-                <path d="M60 5 L75 20 L45 20 Z" fill="#1e3a5f"/>
-                <rect x="57" y="0" width="6" height="8" fill="#1e3a5f"/>
-                {/* Wings */}
-                <path d="M20 35 L45 25 L45 35 Z" fill="#1e3a5f"/>
-                <path d="M100 35 L75 25 L75 35 Z" fill="#1e3a5f"/>
-              </svg>
-            </div>
-            <p className="text-[10px] md:text-xs text-[#1e3a5f] font-semibold tracking-widest uppercase">
-              A.B. Won Pat International
-            </p>
-            <p className="text-xs md:text-sm text-[#1e3a5f] font-bold tracking-wider">
-              AIRPORT GUAM
-            </p>
-          </div>
+          <img 
+            src="/images/giaa-logo.png" 
+            alt="A.B. Won Pat International Airport Guam"
+            className="mx-auto h-24 md:h-36 lg:h-44 w-auto"
+          />
         </div>
 
         {/* Main Title Section */}
@@ -95,26 +75,24 @@ export const LandingPage: React.FC = () => {
             {registrationStatus?.tournament_edition || '5th'} Annual
           </p>
           
-          {/* Tournament name with golfer silhouette */}
-          <div className="relative inline-block">
-            {/* Golfer silhouette - positioned to the left */}
-            <div className="hidden md:block absolute -left-20 top-1/2 -translate-y-1/2 opacity-20">
-              <svg viewBox="0 0 80 120" className="w-16 h-24" fill="#1e3a5f">
-                <ellipse cx="40" cy="12" rx="10" ry="11"/>
-                <path d="M35 23 C30 25, 25 35, 28 50 L22 80 L28 82 L35 55 L38 80 L32 115 L38 117 L45 85 L52 117 L58 115 L52 80 L55 55 L62 82 L68 80 L62 50 C65 35, 60 25, 55 23 Z"/>
-                <path d="M62 50 L75 45 L78 48 L65 55 Z"/>
-                <circle cx="78" cy="43" r="4"/>
-              </svg>
-            </div>
+          {/* Tournament name with Ed's golfer silhouette */}
+          <div className="flex items-center justify-center gap-2 md:gap-4">
+            {/* Ed's golfer silhouette - using their actual image */}
+            <img 
+              src="/images/pete-silhouette.png" 
+              alt="Edward A.P. Muna II silhouette"
+              className="w-12 h-auto md:w-16 lg:w-20"
+            />
             
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#1e3a5f] tracking-tight">
-              {(registrationStatus?.tournament_name || 'Edward A.P. Muna II Memorial Golf Tournament').replace(' Memorial Golf Tournament', '').toUpperCase()}
-            </h2>
+            <div>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#1e3a5f] tracking-tight">
+                {(registrationStatus?.tournament_name || 'Edward A.P. Muna II Memorial Golf Tournament').replace(' Memorial Golf Tournament', '').toUpperCase()}
+              </h2>
+              <p className="text-lg sm:text-xl md:text-2xl font-bold text-[#c9a227] tracking-widest mt-1 md:mt-2">
+                MEMORIAL GOLF TOURNAMENT
+              </p>
+            </div>
           </div>
-          
-          <p className="text-lg sm:text-xl md:text-2xl font-bold text-[#c9a227] tracking-widest mt-2 md:mt-3">
-            MEMORIAL GOLF TOURNAMENT
-          </p>
         </div>
 
         {/* Main Content Card */}
