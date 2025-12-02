@@ -57,6 +57,7 @@ VITE_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 | `/registration/success` | Confirmation page |
 | `/payment/success` | Stripe payment success |
 | `/payment/cancel` | Stripe payment cancelled |
+| `/pay/:token` | Payment link page (sent to golfers via email) |
 
 ### Admin Pages (Protected)
 
@@ -92,22 +93,30 @@ VITE_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
    - Manage status (registration, payment, check-in)
    - Cancel registrations and process Stripe refunds
    - Employee badge display for discounted registrations
+   - Send payment links to unpaid golfers via email
    - Export to Excel
 
-3. **Group Management**
+3. **Payment Links**
+   - Admin can send payment links to golfers who need to pay online
+   - Add Golfer modal with 3 options: Pay on Day, Send Payment Link, Already Paid
+   - "Send Payment Link" automatically emails golfer with secure payment link
+   - Golfer clicks link → sees amount due → completes Stripe checkout
+   - Admin receives notification when payment is completed
+
+4. **Group Management**
    - Drag-and-drop golfers between groups
    - Assign starting holes
    - Auto-assign unassigned golfers
    - Bulk add players to groups
 
-4. **Check-In**
+5. **Check-In**
    - Tabs: Paid, Not Paid, Waitlist
    - Quick payment recording with method/receipt tracking
    - Promote waitlist with one click
    - Dynamic fee display (employee vs regular rate)
    - Capacity indicator with reserved slots
 
-5. **Reports**
+6. **Reports**
    - Interactive data tables
    - Registrations, Check-In, Payments, Groups, Contacts
    - Export each report to Excel
@@ -125,6 +134,7 @@ src/
 ├── pages/
 │   ├── LandingPage.tsx
 │   ├── RegistrationPage.tsx
+│   ├── PaymentLinkPage.tsx
 │   ├── AdminDashboard.tsx
 │   ├── GroupManagementPage.tsx
 │   ├── CheckInPage.tsx

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { Card, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Select } from '../components/ui';
-import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText, UserPlus, Calendar, FileSpreadsheet, ArrowUpCircle, Ban, RotateCcw } from 'lucide-react';
+import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText, UserPlus, Calendar, FileSpreadsheet, ArrowUpCircle, Ban, RotateCcw, Pencil, Save, Send, Copy, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api, Golfer, GolferStats, ActivityLog } from '../services/api';
 import { AddGolferModal } from '../components/AddGolferModal';
@@ -54,12 +54,24 @@ export const AdminDashboard: React.FC = () => {
   const [isDemoting, setIsDemoting] = useState(false);
   const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
   const [isTogglingCheckIn, setIsTogglingCheckIn] = useState(false);
+  const [isSendingPaymentLink, setIsSendingPaymentLink] = useState(false);
   const [showStatusChangeConfirm, setShowStatusChangeConfirm] = useState<'demote' | 'unpay' | 'uncheck' | null>(null);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [paymentFormData, setPaymentFormData] = useState({
     method: 'cash' as 'cash' | 'check' | 'credit',
     receiptNumber: '',
     notes: '',
+  });
+  
+  // Edit golfer state
+  const [isEditingGolfer, setIsEditingGolfer] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editGolferData, setEditGolferData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    company: '',
+    address: '',
   });
 
   // Close export menu when clicking outside
@@ -454,6 +466,103 @@ export const AdminDashboard: React.FC = () => {
       toast.error(err instanceof Error ? err.message : 'Failed to process refund');
     } finally {
       setIsRefunding(false);
+    }
+  };
+
+  // Send payment link to golfer
+  const handleSendPaymentLink = async (golfer: Golfer) => {
+    setIsSendingPaymentLink(true);
+    try {
+      const result = await api.sendPaymentLink(golfer.id);
+      toast.success(result.message);
+      // Refresh golfer data to get updated payment_token
+      fetchData();
+      if (selectedGolfer?.id === golfer.id) {
+        const paymentToken = result.payment_link.split('/').pop() || null;
+        const updatedGolfers = golfers.map(g => 
+          g.id === golfer.id ? { ...g, payment_token: paymentToken } : g
+        );
+        const updated = updatedGolfers.find(g => g.id === golfer.id);
+        if (updated) setSelectedGolfer(updated);
+      }
+    } catch (err) {
+      console.error('Error sending payment link:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to send payment link');
+    } finally {
+      setIsSendingPaymentLink(false);
+    }
+  };
+
+  // Copy payment link to clipboard
+  const handleCopyPaymentLink = async (golfer: Golfer) => {
+    if (!golfer.payment_token) {
+      toast.error('No payment link available');
+      return;
+    }
+    
+    const frontendUrl = import.meta.env.VITE_FRONTEND_URL || window.location.origin;
+    const paymentLink = `${frontendUrl}/pay/${golfer.payment_token}`;
+    
+    try {
+      await navigator.clipboard.writeText(paymentLink);
+      toast.success('Payment link copied to clipboard');
+    } catch (err) {
+      console.error('Error copying link:', err);
+      toast.error('Failed to copy link');
+    }
+  };
+
+  // Start editing golfer details
+  const handleStartEdit = () => {
+    if (!selectedGolfer) return;
+    setEditGolferData({
+      name: selectedGolfer.name || '',
+      email: selectedGolfer.email || '',
+      phone: selectedGolfer.phone || '',
+      company: selectedGolfer.company || '',
+      address: selectedGolfer.address || '',
+    });
+    setIsEditingGolfer(true);
+  };
+
+  // Cancel editing
+  const handleCancelEdit = () => {
+    setIsEditingGolfer(false);
+    setEditGolferData({ name: '', email: '', phone: '', company: '', address: '' });
+  };
+
+  // Save edited golfer details
+  const handleSaveEdit = async () => {
+    if (!selectedGolfer) return;
+    
+    // Validate required fields
+    if (!editGolferData.name.trim()) {
+      toast.error('Name is required');
+      return;
+    }
+    if (!editGolferData.email.trim()) {
+      toast.error('Email is required');
+      return;
+    }
+    
+    setIsSavingEdit(true);
+    try {
+      const updatedGolfer = await api.updateGolfer(selectedGolfer.id, {
+        name: editGolferData.name.trim(),
+        email: editGolferData.email.trim(),
+        phone: editGolferData.phone.trim() || undefined,
+        company: editGolferData.company.trim() || undefined,
+        address: editGolferData.address.trim() || undefined,
+      });
+      toast.success('Golfer details updated');
+      setSelectedGolfer(updatedGolfer);
+      setIsEditingGolfer(false);
+      fetchData();
+    } catch (err) {
+      console.error('Error updating golfer:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to update golfer');
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -1163,7 +1272,7 @@ export const AdminDashboard: React.FC = () => {
           {/* Backdrop */}
           <div 
             className="absolute inset-0 bg-black/50"
-            onClick={() => { setSelectedGolfer(null); setShowCancelConfirm(false); setShowRefundConfirm(false); setCancelReason(''); }}
+            onClick={() => { setSelectedGolfer(null); setShowCancelConfirm(false); setShowRefundConfirm(false); setCancelReason(''); setIsEditingGolfer(false); }}
           />
           
           {/* Modal */}
@@ -1172,7 +1281,7 @@ export const AdminDashboard: React.FC = () => {
             <div className="sticky top-0 bg-white border-b border-gray-200 px-4 lg:px-6 py-4 flex items-center justify-between">
               <h3 className="text-lg font-bold text-gray-900">Player Details</h3>
               <button 
-                onClick={() => { setSelectedGolfer(null); setShowCancelConfirm(false); setShowRefundConfirm(false); setCancelReason(''); }}
+                onClick={() => { setSelectedGolfer(null); setShowCancelConfirm(false); setShowRefundConfirm(false); setCancelReason(''); setIsEditingGolfer(false); }}
                 className="p-2 rounded-full hover:bg-gray-100 transition-colors"
               >
                 <X size={20} />
@@ -1230,29 +1339,120 @@ export const AdminDashboard: React.FC = () => {
 
               {/* Contact Info */}
               <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Contact Information</h4>
-                <div className="grid gap-3">
-                  <div className="flex items-center gap-3 text-sm">
-                    <Mail className="text-gray-400 flex-shrink-0" size={18} />
-                    <span className="text-gray-900">{selectedGolfer.email}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-sm">
-                    <Phone className="text-gray-400 flex-shrink-0" size={18} />
-                    <span className="text-gray-900">{selectedGolfer.phone || '-'}</span>
-                  </div>
-                  {selectedGolfer.company && (
-                    <div className="flex items-center gap-3 text-sm">
-                      <Building2 className="text-gray-400 flex-shrink-0" size={18} />
-                      <span className="text-gray-900">{selectedGolfer.company}</span>
-                    </div>
-                  )}
-                  {selectedGolfer.address && (
-                    <div className="flex items-start gap-3 text-sm">
-                      <MapPin className="text-gray-400 flex-shrink-0 mt-0.5" size={18} />
-                      <span className="text-gray-900">{selectedGolfer.address}</span>
-                    </div>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Contact Information</h4>
+                  {!isEditingGolfer && selectedGolfer.registration_status !== 'cancelled' && (
+                    <button
+                      onClick={handleStartEdit}
+                      className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      <Pencil size={12} />
+                      Edit
+                    </button>
                   )}
                 </div>
+                
+                {isEditingGolfer ? (
+                  <div className="space-y-3">
+                    {/* Edit Form */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Name *</label>
+                      <input
+                        type="text"
+                        value={editGolferData.name}
+                        onChange={(e) => setEditGolferData(prev => ({ ...prev, name: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Full name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Email *</label>
+                      <input
+                        type="email"
+                        value={editGolferData.email}
+                        onChange={(e) => setEditGolferData(prev => ({ ...prev, email: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="email@example.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Phone</label>
+                      <input
+                        type="tel"
+                        value={editGolferData.phone}
+                        onChange={(e) => setEditGolferData(prev => ({ ...prev, phone: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="(671) 123-4567"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Company</label>
+                      <input
+                        type="text"
+                        value={editGolferData.company}
+                        onChange={(e) => setEditGolferData(prev => ({ ...prev, company: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Company name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Address</label>
+                      <input
+                        type="text"
+                        value={editGolferData.address}
+                        onChange={(e) => setEditGolferData(prev => ({ ...prev, address: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Mailing address"
+                      />
+                    </div>
+                    
+                    {/* Save/Cancel buttons */}
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        onClick={handleCancelEdit}
+                        disabled={isSavingEdit}
+                        className="flex-1 px-3 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveEdit}
+                        disabled={isSavingEdit}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                      >
+                        {isSavingEdit ? (
+                          <RefreshCw size={14} className="animate-spin" />
+                        ) : (
+                          <Save size={14} />
+                        )}
+                        {isSavingEdit ? 'Saving...' : 'Save Changes'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    <div className="flex items-center gap-3 text-sm">
+                      <Mail className="text-gray-400 flex-shrink-0" size={18} />
+                      <span className="text-gray-900">{selectedGolfer.email}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm">
+                      <Phone className="text-gray-400 flex-shrink-0" size={18} />
+                      <span className="text-gray-900">{selectedGolfer.phone || '-'}</span>
+                    </div>
+                    {selectedGolfer.company && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <Building2 className="text-gray-400 flex-shrink-0" size={18} />
+                        <span className="text-gray-900">{selectedGolfer.company}</span>
+                      </div>
+                    )}
+                    {selectedGolfer.address && (
+                      <div className="flex items-start gap-3 text-sm">
+                        <MapPin className="text-gray-400 flex-shrink-0 mt-0.5" size={18} />
+                        <span className="text-gray-900">{selectedGolfer.address}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Tournament Info */}
@@ -1389,6 +1589,35 @@ export const AdminDashboard: React.FC = () => {
                           <span className="text-purple-600 block mb-1">Reason:</span>
                           <p className="text-purple-800 bg-purple-100/50 p-2 rounded text-xs">{selectedGolfer.refund_reason}</p>
                         </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Send Payment Link - shown for unpaid non-cancelled golfers */}
+                  {selectedGolfer.payment_status !== 'paid' && 
+                   selectedGolfer.payment_status !== 'refunded' &&
+                   selectedGolfer.registration_status !== 'cancelled' && (
+                    <div className="mt-3 pt-3 border-t border-amber-200">
+                      <button
+                        onClick={() => handleSendPaymentLink(selectedGolfer)}
+                        disabled={isSendingPaymentLink}
+                        className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                      >
+                        {isSendingPaymentLink ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
+                        {isSendingPaymentLink ? 'Sending...' : 'Send Payment Link'}
+                      </button>
+                      {selectedGolfer.payment_token && (
+                        <button
+                          onClick={() => handleCopyPaymentLink(selectedGolfer)}
+                          className="w-full mt-2 flex items-center justify-center gap-2 py-2 px-4 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-lg text-sm transition-colors"
+                        >
+                          <Copy className="w-4 h-4" />
+                          Copy Payment Link
+                        </button>
                       )}
                     </div>
                   )}
@@ -1698,7 +1927,23 @@ export const AdminDashboard: React.FC = () => {
                         <div className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5" />
                         <div className="flex-1 min-w-0">
                           <p className="text-gray-700">{log.details}</p>
-                          <p className="text-xs text-gray-400">
+                          {/* Show what changed for golfer_updated actions */}
+                          {log.action === 'golfer_updated' && log.metadata?.changes && (() => {
+                            const changes = log.metadata.changes as Record<string, { from: string; to: string }>;
+                            return (
+                              <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+                                {Object.entries(changes).map(([field, change]) => (
+                                  <div key={field} className="flex items-center gap-1">
+                                    <span className="capitalize font-medium">{field}:</span>
+                                    <span className="text-gray-400 line-through">{String(change?.from || '') || '(empty)'}</span>
+                                    <span className="text-gray-400">→</span>
+                                    <span className="text-gray-700">{String(change?.to || '') || '(empty)'}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })()}
+                          <p className="text-xs text-gray-400 mt-1">
                             {new Date(log.created_at).toLocaleString('en-US', {
                               month: 'short',
                               day: 'numeric',

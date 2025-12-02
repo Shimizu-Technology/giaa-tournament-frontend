@@ -86,6 +86,8 @@ export interface Golfer {
   // Employee fields
   is_employee: boolean;
   employee_number: string | null;
+  // Payment link
+  payment_token: string | null;
 }
 
 export interface Group {
@@ -397,6 +399,7 @@ class ApiClient {
       notes?: string;
     };
     waiver_accepted: boolean;
+    is_employee?: boolean;
     employee_number?: string;
   }): Promise<{ golfer: Golfer; message: string; employee_discount_applied?: boolean }> {
     return this.request('/api/v1/golfers', {
@@ -508,6 +511,28 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ reason, refund_amount_cents: refundAmountCents }),
     });
+  }
+
+  // Payment Links
+  async sendPaymentLink(golferId: number): Promise<{ success: boolean; message: string; payment_link: string }> {
+    return this.request(`/api/v1/golfers/${golferId}/send_payment_link`, {
+      method: 'POST',
+    });
+  }
+
+  async getPaymentLinkInfo(token: string): Promise<{
+    golfer: { id: number; name: string; email: string; phone: string; company: string; is_employee: boolean; registration_status: string };
+    tournament: { id: number; name: string; event_date: string };
+    entry_fee_cents: number;
+    entry_fee_dollars: number;
+  }> {
+    return this.request(`/api/v1/payment_links/${token}`, {}, false);
+  }
+
+  async createPaymentLinkCheckout(token: string): Promise<{ client_secret: string; session_id: string; test_mode?: boolean; success?: boolean; message?: string }> {
+    return this.request(`/api/v1/payment_links/${token}/checkout`, {
+      method: 'POST',
+    }, false);
   }
 
   async getGolferStats(tournamentId?: number): Promise<GolferStats> {

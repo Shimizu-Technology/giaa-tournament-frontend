@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { Card, Button, Input, Select } from '../components/ui';
-import { Search, CheckCircle, DollarSign, User, RefreshCw, X, UserCheck, CreditCard, Users, Clock, ArrowUpCircle } from 'lucide-react';
+import { Search, CheckCircle, DollarSign, User, RefreshCw, X, UserCheck, CreditCard, Users, Clock, ArrowUpCircle, Send, Copy, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api, Golfer, GolferStats, ActivityLog } from '../services/api';
 
@@ -31,7 +31,11 @@ const PlayerDetailPanel: React.FC<{
   onPromote?: () => void;
   onPromotePayCheckIn?: () => void;
   capacityRemaining?: number;
-}> = ({ golfer, paymentInfo, setPaymentInfo, isProcessing, onCheckIn, onRecordPayment, onClose, showCloseButton = true, entryFee = 125, activityLogs = [], loadingActivityLogs = false, isPromoting = false, onPromote, onPromotePayCheckIn, capacityRemaining = 0 }) => {
+  // Payment link props
+  isSendingPaymentLink?: boolean;
+  onSendPaymentLink?: () => void;
+  onCopyPaymentLink?: () => void;
+}> = ({ golfer, paymentInfo, setPaymentInfo, isProcessing, onCheckIn, onRecordPayment, onClose, showCloseButton = true, entryFee = 125, activityLogs = [], loadingActivityLogs = false, isPromoting = false, onPromote, onPromotePayCheckIn, capacityRemaining = 0, isSendingPaymentLink = false, onSendPaymentLink, onCopyPaymentLink }) => {
   return (
     <div className="space-y-4 lg:space-y-6">
       <div className="flex items-center gap-3 lg:gap-4">
@@ -321,6 +325,43 @@ const PlayerDetailPanel: React.FC<{
               )}
             </Button>
           </div>
+
+          {/* Send Payment Link Option */}
+          {onSendPaymentLink && (
+            <div className="p-3 lg:p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+              <h4 className="text-sm font-medium text-blue-900 flex items-center gap-2">
+                <Send size={16} />
+                Or Send Payment Link
+              </h4>
+              <p className="text-xs text-blue-700">
+                Email a secure payment link to the golfer so they can pay online.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  onClick={onSendPaymentLink}
+                  variant="outline"
+                  className="flex-1 py-2 text-blue-700 border-blue-300 hover:bg-blue-100"
+                  disabled={isSendingPaymentLink}
+                >
+                  {isSendingPaymentLink ? (
+                    <Loader2 size={16} className="animate-spin mr-2" />
+                  ) : (
+                    <Send size={16} className="mr-2" />
+                  )}
+                  {isSendingPaymentLink ? 'Sending...' : 'Send Link'}
+                </Button>
+                {golfer.payment_token && onCopyPaymentLink && (
+                  <Button
+                    onClick={onCopyPaymentLink}
+                    variant="outline"
+                    className="py-2 px-3 text-gray-600 border-gray-300 hover:bg-gray-100"
+                  >
+                    <Copy size={16} />
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -371,6 +412,7 @@ export const CheckInPage: React.FC = () => {
   const [golferActivityLogs, setGolferActivityLogs] = useState<ActivityLog[]>([]);
   const [loadingActivityLogs, setLoadingActivityLogs] = useState(false);
   const [isPromoting, setIsPromoting] = useState(false);
+  const [isSendingPaymentLink, setIsSendingPaymentLink] = useState(false);
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo>({
     method: 'cash',
     receiptNumber: '',
@@ -494,6 +536,43 @@ export const CheckInPage: React.FC = () => {
       setError(err instanceof Error ? err.message : 'Failed to record payment');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  // Send payment link to golfer
+  const handleSendPaymentLink = async () => {
+    if (!selectedGolfer) return;
+    
+    setIsSendingPaymentLink(true);
+    try {
+      const result = await api.sendPaymentLink(selectedGolfer.id);
+      toast.success(result.message);
+      // Refresh data to get updated golfer with payment_token
+      await fetchData();
+    } catch (err) {
+      console.error('Error sending payment link:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to send payment link');
+    } finally {
+      setIsSendingPaymentLink(false);
+    }
+  };
+
+  // Copy payment link to clipboard
+  const handleCopyPaymentLink = async () => {
+    if (!selectedGolfer?.payment_token) {
+      toast.error('No payment link available');
+      return;
+    }
+    
+    const frontendUrl = import.meta.env.VITE_FRONTEND_URL || window.location.origin;
+    const paymentLink = `${frontendUrl}/pay/${selectedGolfer.payment_token}`;
+    
+    try {
+      await navigator.clipboard.writeText(paymentLink);
+      toast.success('Payment link copied to clipboard');
+    } catch (err) {
+      console.error('Error copying link:', err);
+      toast.error('Failed to copy link');
     }
   };
 
@@ -935,6 +1014,9 @@ export const CheckInPage: React.FC = () => {
                 onPromote={handlePromote}
                 onPromotePayCheckIn={handlePromotePayCheckIn}
                 capacityRemaining={stats?.capacity_remaining ?? 0}
+                isSendingPaymentLink={isSendingPaymentLink}
+                onSendPaymentLink={handleSendPaymentLink}
+                onCopyPaymentLink={handleCopyPaymentLink}
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-full py-16 text-center">
@@ -1006,6 +1088,9 @@ export const CheckInPage: React.FC = () => {
                 onPromote={handlePromote}
                 onPromotePayCheckIn={handlePromotePayCheckIn}
                 capacityRemaining={stats?.capacity_remaining ?? 0}
+                isSendingPaymentLink={isSendingPaymentLink}
+                onSendPaymentLink={handleSendPaymentLink}
+                onCopyPaymentLink={handleCopyPaymentLink}
               />
             </div>
           </div>

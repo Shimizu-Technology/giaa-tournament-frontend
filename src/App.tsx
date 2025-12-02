@@ -6,6 +6,7 @@ import {
   RegistrationSuccessPage,
   PaymentSuccessPage,
   PaymentCancelPage,
+  PaymentLinkPage,
   AdminLoginPage,
   AdminDashboard,
   GroupManagementPage,
@@ -39,6 +40,8 @@ function App() {
         <Route path="/registration/success" element={<RegistrationSuccessPage />} />
         <Route path="/payment/success" element={<PaymentSuccessPage />} />
         <Route path="/payment/cancel" element={<PaymentCancelPage />} />
+        <Route path="/pay/:token" element={<PaymentLinkPage />} />
+        <Route path="/pay/:token/success" element={<PaymentLinkPage />} />
 
         {/* Admin Login (public) */}
         <Route path="/admin/login" element={<AdminLoginPage />} />
