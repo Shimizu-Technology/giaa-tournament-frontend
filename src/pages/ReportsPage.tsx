@@ -34,7 +34,7 @@ export const ReportsPage: React.FC = () => {
       setError(null);
       
       const [golfersResponse, groupsData, statsData] = await Promise.all([
-        api.getGolfers(),
+        api.getGolfers({ per_page: 1000 }),
         api.getGroups(),
         api.getGolferStats(),
       ]);
