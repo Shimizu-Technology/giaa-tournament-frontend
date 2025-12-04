@@ -520,6 +520,12 @@ class ApiClient {
     });
   }
 
+  async toggleEmployee(golferId: number): Promise<Golfer> {
+    return this.request(`/api/v1/golfers/${golferId}/toggle_employee`, {
+      method: 'POST',
+    });
+  }
+
   async getPaymentLinkInfo(token: string): Promise<{
     golfer: { id: number; name: string; email: string; phone: string; company: string; is_employee: boolean; registration_status: string };
     tournament: { id: number; name: string; event_date: string };

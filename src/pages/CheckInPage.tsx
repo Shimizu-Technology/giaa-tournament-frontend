@@ -35,7 +35,10 @@ const PlayerDetailPanel: React.FC<{
   isSendingPaymentLink?: boolean;
   onSendPaymentLink?: () => void;
   onCopyPaymentLink?: () => void;
-}> = ({ golfer, paymentInfo, setPaymentInfo, isProcessing, onCheckIn, onRecordPayment, onClose, showCloseButton = true, entryFee = 125, activityLogs = [], loadingActivityLogs = false, isPromoting = false, onPromote, onPromotePayCheckIn, capacityRemaining = 0, isSendingPaymentLink = false, onSendPaymentLink, onCopyPaymentLink }) => {
+  // Employee toggle props
+  isTogglingEmployee?: boolean;
+  onToggleEmployee?: () => void;
+}> = ({ golfer, paymentInfo, setPaymentInfo, isProcessing, onCheckIn, onRecordPayment, onClose, showCloseButton = true, entryFee = 125, activityLogs = [], loadingActivityLogs = false, isPromoting = false, onPromote, onPromotePayCheckIn, capacityRemaining = 0, isSendingPaymentLink = false, onSendPaymentLink, onCopyPaymentLink, isTogglingEmployee = false, onToggleEmployee }) => {
   return (
     <div className="space-y-4 lg:space-y-6">
       <div className="flex items-center gap-3 lg:gap-4">
@@ -261,6 +264,7 @@ const PlayerDetailPanel: React.FC<{
             </div>
             <p className="text-sm text-amber-700">
               Collect ${entryFee.toFixed(2)} before checking in
+              {golfer.is_employee && <span className="ml-1 text-purple-700">(Employee Rate)</span>}
             </p>
           </div>
 
@@ -269,6 +273,29 @@ const PlayerDetailPanel: React.FC<{
               <CreditCard size={18} />
               Record Payment
             </h3>
+
+            {/* Employee Toggle */}
+            {onToggleEmployee && (
+              <div className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
+                  </svg>
+                  <span className="text-sm text-gray-700">Employee Discount</span>
+                </div>
+                <button
+                  onClick={onToggleEmployee}
+                  disabled={isTogglingEmployee}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                    golfer.is_employee
+                      ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {isTogglingEmployee ? 'Updating...' : golfer.is_employee ? '✓ Applied' : 'Apply'}
+                </button>
+              </div>
+            )}
 
             <Select
               label="Payment Method"
@@ -413,6 +440,7 @@ export const CheckInPage: React.FC = () => {
   const [loadingActivityLogs, setLoadingActivityLogs] = useState(false);
   const [isPromoting, setIsPromoting] = useState(false);
   const [isSendingPaymentLink, setIsSendingPaymentLink] = useState(false);
+  const [isTogglingEmployee, setIsTogglingEmployee] = useState(false);
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo>({
     method: 'cash',
     receiptNumber: '',
@@ -449,14 +477,15 @@ export const CheckInPage: React.FC = () => {
     }
   }, [successMessage]);
 
-  // Calculate counts
+  // Calculate counts - only count confirmed golfers for paid/unpaid tabs
   const counts = useMemo(() => {
-    const pending = golfers.filter(g => !g.checked_in);
+    const confirmed = golfers.filter(g => g.registration_status === 'confirmed');
+    const pendingConfirmed = confirmed.filter(g => !g.checked_in);
     return {
       total: golfers.length,
       checkedIn: golfers.filter(g => g.checked_in).length,
-      paidPending: pending.filter(g => g.payment_status === 'paid').length,
-      unpaidPending: pending.filter(g => g.payment_status === 'unpaid').length,
+      paidPending: pendingConfirmed.filter(g => g.payment_status === 'paid').length,
+      unpaidPending: pendingConfirmed.filter(g => g.payment_status === 'unpaid').length,
     };
   }, [golfers]);
 
@@ -513,7 +542,7 @@ export const CheckInPage: React.FC = () => {
       setIsProcessing(true);
       setError(null);
 
-      await api.addPaymentDetails(selectedGolfer.id, {
+      const updatedGolfer = await api.addPaymentDetails(selectedGolfer.id, {
         payment_method: paymentInfo.method,
         receipt_number: paymentInfo.receiptNumber,
         payment_notes: paymentInfo.notes,
@@ -523,8 +552,8 @@ export const CheckInPage: React.FC = () => {
       
       await fetchData();
       
-      // Update the selected golfer to show paid status
-      setSelectedGolfer(prev => prev ? { ...prev, payment_status: 'paid' } : null);
+      // Update the selected golfer with full response data (includes payment_amount_cents)
+      setSelectedGolfer(updatedGolfer);
       
       setPaymentInfo({
         method: 'cash',
@@ -554,6 +583,25 @@ export const CheckInPage: React.FC = () => {
       toast.error(err instanceof Error ? err.message : 'Failed to send payment link');
     } finally {
       setIsSendingPaymentLink(false);
+    }
+  };
+
+  // Toggle employee status
+  const handleToggleEmployee = async () => {
+    if (!selectedGolfer) return;
+    
+    setIsTogglingEmployee(true);
+    try {
+      const updatedGolfer = await api.toggleEmployee(selectedGolfer.id);
+      const action = updatedGolfer.is_employee ? 'marked as employee' : 'removed employee status';
+      toast.success(`${selectedGolfer.name} has been ${action}.`);
+      setSelectedGolfer(updatedGolfer);
+      await fetchData();
+    } catch (err) {
+      console.error('Error toggling employee status:', err);
+      toast.error('Failed to update employee status');
+    } finally {
+      setIsTogglingEmployee(false);
     }
   };
 
@@ -1017,6 +1065,8 @@ export const CheckInPage: React.FC = () => {
                 isSendingPaymentLink={isSendingPaymentLink}
                 onSendPaymentLink={handleSendPaymentLink}
                 onCopyPaymentLink={handleCopyPaymentLink}
+                isTogglingEmployee={isTogglingEmployee}
+                onToggleEmployee={handleToggleEmployee}
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-full py-16 text-center">
@@ -1091,6 +1141,8 @@ export const CheckInPage: React.FC = () => {
                 isSendingPaymentLink={isSendingPaymentLink}
                 onSendPaymentLink={handleSendPaymentLink}
                 onCopyPaymentLink={handleCopyPaymentLink}
+                isTogglingEmployee={isTogglingEmployee}
+                onToggleEmployee={handleToggleEmployee}
               />
             </div>
           </div>
