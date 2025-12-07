@@ -117,7 +117,7 @@ export const LandingPage: React.FC = () => {
                   </div>
                   <p className="text-gray-900 font-semibold text-base md:text-lg">{registrationStatus?.event_date || 'January 9, 2026'}</p>
                   <div className="mt-2 space-y-1">
-                    <p className="text-xs md:text-sm text-gray-600 flex items-center gap-2 whitespace-nowrap">
+                    <p className="text-xs md:text-sm text-gray-600 flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-[#c9a227] flex-shrink-0"></span>
                       <span>Showtime/Registration: {registrationStatus?.registration_time || '11:00 am'}</span>
                     </p>
