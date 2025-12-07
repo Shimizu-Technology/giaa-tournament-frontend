@@ -40,15 +40,16 @@ export const TableRow: React.FC<TableRowProps> = ({ children, className = '', ..
   return <tr className={className} {...props}>{children}</tr>;
 };
 
-interface TableHeadProps {
+interface TableHeadProps extends React.ThHTMLAttributes<HTMLTableCellElement> {
   children: React.ReactNode;
   className?: string;
 }
 
-export const TableHead: React.FC<TableHeadProps> = ({ children, className = '' }) => {
+export const TableHead: React.FC<TableHeadProps> = ({ children, className = '', ...props }) => {
   return (
     <th
       className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${className}`}
+      {...props}
     >
       {children}
     </th>

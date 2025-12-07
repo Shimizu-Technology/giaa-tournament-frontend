@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { Card, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Select } from '../components/ui';
-import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText, UserPlus, Calendar, FileSpreadsheet, ArrowUpCircle, Ban, RotateCcw, Pencil, Save, Send, Copy, Loader2 } from 'lucide-react';
+import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText, UserPlus, Calendar, FileSpreadsheet, ArrowUpCircle, Ban, RotateCcw, Pencil, Save, Send, Copy, Loader2, ArrowUpDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api, Golfer, GolferStats, ActivityLog } from '../services/api';
 import { AddGolferModal } from '../components/AddGolferModal';
@@ -75,6 +75,20 @@ export const AdminDashboard: React.FC = () => {
     address: '',
   });
 
+  // Table sorting state
+  type SortColumn = 'name' | 'email' | 'company' | 'payment' | 'status' | 'group' | 'hole' | 'checked_in';
+  const [sortColumn, setSortColumn] = useState<SortColumn>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
   // Close export menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -109,7 +123,7 @@ export const AdminDashboard: React.FC = () => {
   }, []);
 
   const filteredGolfers = useMemo(() => {
-    return golfers.filter((golfer) => {
+    const filtered = golfers.filter((golfer) => {
       if (searchTerm) {
         const search = searchTerm.toLowerCase();
         const name = golfer.name?.toLowerCase() || '';
@@ -147,7 +161,56 @@ export const AdminDashboard: React.FC = () => {
 
       return true;
     });
-  }, [golfers, searchTerm, paymentFilter, paymentMethodFilter, statusFilter, checkinFilter, groupFilter, holeFilter]);
+
+    // Sort the filtered results
+    return [...filtered].sort((a, b) => {
+      let aVal: string | number | boolean = '';
+      let bVal: string | number | boolean = '';
+
+      switch (sortColumn) {
+        case 'name':
+          aVal = a.name?.toLowerCase() || '';
+          bVal = b.name?.toLowerCase() || '';
+          break;
+        case 'email':
+          aVal = a.email?.toLowerCase() || '';
+          bVal = b.email?.toLowerCase() || '';
+          break;
+        case 'company':
+          aVal = a.company?.toLowerCase() || '';
+          bVal = b.company?.toLowerCase() || '';
+          break;
+        case 'payment':
+          // Sort order: paid > unpaid > refunded
+          const paymentOrder = { paid: 0, unpaid: 1, refunded: 2 };
+          aVal = paymentOrder[a.payment_status as keyof typeof paymentOrder] ?? 3;
+          bVal = paymentOrder[b.payment_status as keyof typeof paymentOrder] ?? 3;
+          break;
+        case 'status':
+          // Sort order: confirmed > waitlist > cancelled
+          const statusOrder = { confirmed: 0, waitlist: 1, cancelled: 2 };
+          aVal = statusOrder[a.registration_status as keyof typeof statusOrder] ?? 3;
+          bVal = statusOrder[b.registration_status as keyof typeof statusOrder] ?? 3;
+          break;
+        case 'group':
+          aVal = a.group_position_label || 'zzz'; // Unassigned at end
+          bVal = b.group_position_label || 'zzz';
+          break;
+        case 'hole':
+          aVal = a.hole_number || 999;
+          bVal = b.hole_number || 999;
+          break;
+        case 'checked_in':
+          aVal = a.checked_in ? 0 : 1; // Checked in first
+          bVal = b.checked_in ? 0 : 1;
+          break;
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [golfers, searchTerm, paymentFilter, paymentMethodFilter, statusFilter, checkinFilter, groupFilter, holeFilter, sortColumn, sortDirection]);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -1210,14 +1273,110 @@ export const AdminDashboard: React.FC = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Company</TableHead>
-                      <TableHead>Payment</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Group</TableHead>
-                      <TableHead>Hole</TableHead>
-                      <TableHead>Checked In</TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-gray-100 select-none"
+                        onClick={() => handleSort('name')}
+                      >
+                        <div className="flex items-center gap-1">
+                          Name
+                          {sortColumn === 'name' ? (
+                            sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+                          ) : (
+                            <ArrowUpDown size={14} className="text-gray-400" />
+                          )}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-gray-100 select-none"
+                        onClick={() => handleSort('email')}
+                      >
+                        <div className="flex items-center gap-1">
+                          Email
+                          {sortColumn === 'email' ? (
+                            sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+                          ) : (
+                            <ArrowUpDown size={14} className="text-gray-400" />
+                          )}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-gray-100 select-none"
+                        onClick={() => handleSort('company')}
+                      >
+                        <div className="flex items-center gap-1">
+                          Company
+                          {sortColumn === 'company' ? (
+                            sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+                          ) : (
+                            <ArrowUpDown size={14} className="text-gray-400" />
+                          )}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-gray-100 select-none"
+                        onClick={() => handleSort('payment')}
+                      >
+                        <div className="flex items-center gap-1">
+                          Payment
+                          {sortColumn === 'payment' ? (
+                            sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+                          ) : (
+                            <ArrowUpDown size={14} className="text-gray-400" />
+                          )}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-gray-100 select-none"
+                        onClick={() => handleSort('status')}
+                      >
+                        <div className="flex items-center gap-1">
+                          Status
+                          {sortColumn === 'status' ? (
+                            sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+                          ) : (
+                            <ArrowUpDown size={14} className="text-gray-400" />
+                          )}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-gray-100 select-none"
+                        onClick={() => handleSort('group')}
+                      >
+                        <div className="flex items-center gap-1">
+                          Group
+                          {sortColumn === 'group' ? (
+                            sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+                          ) : (
+                            <ArrowUpDown size={14} className="text-gray-400" />
+                          )}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-gray-100 select-none"
+                        onClick={() => handleSort('hole')}
+                      >
+                        <div className="flex items-center gap-1">
+                          Hole
+                          {sortColumn === 'hole' ? (
+                            sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+                          ) : (
+                            <ArrowUpDown size={14} className="text-gray-400" />
+                          )}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-gray-100 select-none"
+                        onClick={() => handleSort('checked_in')}
+                      >
+                        <div className="flex items-center gap-1">
+                          Checked In
+                          {sortColumn === 'checked_in' ? (
+                            sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+                          ) : (
+                            <ArrowUpDown size={14} className="text-gray-400" />
+                          )}
+                        </div>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

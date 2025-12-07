@@ -66,19 +66,25 @@ export const ReportsPage: React.FC = () => {
   }, [golfers, searchTerm]);
 
   // Compute report data
-  const paidGolfers = useMemo(() => 
-    filteredGolfers.filter(g => g.payment_status === 'paid'), 
+  // Only include confirmed golfers for check-in sheet (exclude cancelled and waitlist)
+  const confirmedGolfers = useMemo(() => 
+    filteredGolfers.filter(g => g.registration_status === 'confirmed'), 
     [filteredGolfers]
+  );
+
+  const paidGolfers = useMemo(() => 
+    confirmedGolfers.filter(g => g.payment_status === 'paid'), 
+    [confirmedGolfers]
   );
   
   const unpaidGolfers = useMemo(() => 
-    filteredGolfers.filter(g => g.payment_status !== 'paid'), 
-    [filteredGolfers]
+    confirmedGolfers.filter(g => g.payment_status !== 'paid'), 
+    [confirmedGolfers]
   );
   
   const checkedInGolfers = useMemo(() => 
-    filteredGolfers.filter(g => g.checked_in), 
-    [filteredGolfers]
+    confirmedGolfers.filter(g => g.checked_in), 
+    [confirmedGolfers]
   );
 
   // Groups sorted by group number (creation order)
@@ -107,7 +113,7 @@ export const ReportsPage: React.FC = () => {
         break;
       }
       case 'checkin': {
-        const data = filteredGolfers.map(g => ({
+        const data = confirmedGolfers.map(g => ({
           'Name': g.name,
           'Company': g.company || '-',
           'Group': g.group_position_label || 'Unassigned',
@@ -425,7 +431,7 @@ export const ReportsPage: React.FC = () => {
               {activeTab === 'checkin' && (
                 <>
                   <div className="p-2 lg:p-4 border-b bg-gray-50 flex justify-between items-center">
-                    <span className="text-xs lg:text-sm text-gray-600">{filteredGolfers.length} players</span>
+                    <span className="text-xs lg:text-sm text-gray-600">{confirmedGolfers.length} players</span>
                     <span className="text-xs lg:text-sm font-medium text-green-700">
                       {checkedInGolfers.length} checked in
                     </span>
@@ -433,7 +439,7 @@ export const ReportsPage: React.FC = () => {
                   
                   {/* Mobile View */}
                   <div className="lg:hidden max-h-[60vh] overflow-y-auto">
-                    {filteredGolfers.map(g => (
+                    {confirmedGolfers.map(g => (
                       <div key={g.id} className={`p-3 border-b border-gray-100 last:border-b-0 ${g.checked_in ? 'bg-green-50' : ''}`}>
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0 flex-1">
@@ -471,7 +477,7 @@ export const ReportsPage: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {filteredGolfers.map(g => (
+                        {confirmedGolfers.map(g => (
                           <tr key={g.id} className={`hover:bg-gray-50 ${g.checked_in ? 'bg-green-50' : ''}`}>
                             <td className="px-3 py-2 font-medium">{g.name}</td>
                             <td className="px-3 py-2 text-gray-600">{g.company || '-'}</td>
