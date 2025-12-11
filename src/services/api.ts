@@ -526,6 +526,43 @@ class ApiClient {
     });
   }
 
+  // Bulk actions
+  async bulkSetEmployee(golferIds: number[], isEmployee: boolean): Promise<{
+    success: boolean;
+    message: string;
+    updated_count: number;
+    skipped_count: number;
+    skipped_reasons?: Array<{ name: string; reason: string }>;
+    golfers: Golfer[];
+  }> {
+    const tournamentId = this.currentTournamentId;
+    return this.request('/api/v1/golfers/bulk_set_employee', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        golfer_ids: golferIds, 
+        is_employee: isEmployee,
+        tournament_id: tournamentId
+      }),
+    });
+  }
+
+  async bulkSendPaymentLinks(golferIds: number[]): Promise<{
+    success: boolean;
+    message: string;
+    sent_count: number;
+    skipped_count: number;
+    skipped_reasons: Array<{ name: string; reason: string }>;
+  }> {
+    const tournamentId = this.currentTournamentId;
+    return this.request('/api/v1/golfers/bulk_send_payment_links', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        golfer_ids: golferIds,
+        tournament_id: tournamentId
+      }),
+    });
+  }
+
   async getPaymentLinkInfo(token: string): Promise<{
     golfer: { id: number; name: string; email: string; phone: string; company: string; is_employee: boolean; registration_status: string };
     tournament: { id: number; name: string; event_date: string };

@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { Card, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Select } from '../components/ui';
-import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText, UserPlus, Calendar, FileSpreadsheet, ArrowUpCircle, Ban, RotateCcw, Pencil, Save, Send, Copy, Loader2, ArrowUpDown } from 'lucide-react';
+import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText, UserPlus, Calendar, FileSpreadsheet, ArrowUpCircle, Ban, RotateCcw, Pencil, Save, Send, Copy, Loader2, ArrowUpDown, UserCheck, SendHorizontal } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api, Golfer, GolferStats, ActivityLog } from '../services/api';
 import { AddGolferModal } from '../components/AddGolferModal';
+import { BulkActionBar, BulkActionButton } from '../components/BulkActionBar';
 import * as XLSX from 'xlsx';
 
 // Format date for display (uses browser's locale which respects timezone)
@@ -74,6 +75,12 @@ export const AdminDashboard: React.FC = () => {
     company: '',
     address: '',
   });
+
+  // Bulk selection state
+  const [selectedGolferIds, setSelectedGolferIds] = useState<Set<number>>(new Set());
+  const [showBulkEmployeeConfirm, setShowBulkEmployeeConfirm] = useState<'add' | 'remove' | null>(null);
+  const [showBulkPaymentLinksConfirm, setShowBulkPaymentLinksConfirm] = useState(false);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
   // Table sorting state
   type SortColumn = 'name' | 'email' | 'company' | 'payment' | 'status' | 'group' | 'hole' | 'checked_in';
@@ -231,6 +238,102 @@ export const AdminDashboard: React.FC = () => {
     setGroupFilter('all');
     setHoleFilter('all');
     setSearchTerm('');
+  };
+
+  // Bulk selection helpers
+  const toggleGolferSelection = (golferId: number, e: React.MouseEvent) => {
+    e.stopPropagation(); // Don't open the detail modal
+    setSelectedGolferIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(golferId)) {
+        newSet.delete(golferId);
+      } else {
+        newSet.add(golferId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAllVisible = () => {
+    const visibleIds = filteredGolfers.map(g => g.id);
+    const allSelected = visibleIds.every(id => selectedGolferIds.has(id));
+    
+    if (allSelected) {
+      // Deselect all visible
+      setSelectedGolferIds(prev => {
+        const newSet = new Set(prev);
+        visibleIds.forEach(id => newSet.delete(id));
+        return newSet;
+      });
+    } else {
+      // Select all visible
+      setSelectedGolferIds(prev => {
+        const newSet = new Set(prev);
+        visibleIds.forEach(id => newSet.add(id));
+        return newSet;
+      });
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedGolferIds(new Set());
+  };
+
+  const allVisibleSelected = useMemo(() => {
+    if (filteredGolfers.length === 0) return false;
+    return filteredGolfers.every(g => selectedGolferIds.has(g.id));
+  }, [filteredGolfers, selectedGolferIds]);
+
+  const someVisibleSelected = useMemo(() => {
+    return filteredGolfers.some(g => selectedGolferIds.has(g.id));
+  }, [filteredGolfers, selectedGolferIds]);
+
+  // Get selected golfers from current filtered view
+  const selectedGolfers = useMemo(() => {
+    return filteredGolfers.filter(g => selectedGolferIds.has(g.id));
+  }, [filteredGolfers, selectedGolferIds]);
+
+  // Bulk action handlers
+  const handleBulkSetEmployee = async (isEmployee: boolean) => {
+    if (selectedGolferIds.size === 0) return;
+    
+    setIsBulkProcessing(true);
+    try {
+      const result = await api.bulkSetEmployee(Array.from(selectedGolferIds), isEmployee);
+      toast.success(result.message);
+      if (result.skipped_count > 0 && result.skipped_reasons) {
+        const reasons = result.skipped_reasons.slice(0, 3).map((r: { name: string; reason: string }) => `${r.name}: ${r.reason}`).join(', ');
+        toast(`${result.skipped_count} skipped: ${reasons}${result.skipped_count > 3 ? '...' : ''}`, { icon: 'ℹ️', duration: 5000 });
+      }
+      await fetchData();
+      clearSelection();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update employees');
+    } finally {
+      setIsBulkProcessing(false);
+      setShowBulkEmployeeConfirm(null);
+    }
+  };
+
+  const handleBulkSendPaymentLinks = async () => {
+    if (selectedGolferIds.size === 0) return;
+    
+    setIsBulkProcessing(true);
+    try {
+      const result = await api.bulkSendPaymentLinks(Array.from(selectedGolferIds));
+      toast.success(result.message);
+      if (result.skipped_count > 0) {
+        const reasons = result.skipped_reasons.slice(0, 3).map(r => `${r.name}: ${r.reason}`).join(', ');
+        toast(`${result.skipped_count} skipped: ${reasons}${result.skipped_count > 3 ? '...' : ''}`, { icon: 'ℹ️', duration: 5000 });
+      }
+      await fetchData();
+      clearSelection();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to send payment links');
+    } finally {
+      setIsBulkProcessing(false);
+      setShowBulkPaymentLinksConfirm(false);
+    }
   };
 
   // Excel Export Functions
@@ -1195,9 +1298,42 @@ export const AdminDashboard: React.FC = () => {
 
         {/* Registrants */}
         <Card className="p-3 lg:p-6">
+          {/* Bulk Action Bar */}
+          <BulkActionBar 
+            selectedCount={selectedGolferIds.size} 
+            onClearSelection={clearSelection}
+          >
+            <BulkActionButton
+              onClick={() => setShowBulkEmployeeConfirm('add')}
+              disabled={isBulkProcessing}
+            >
+              <UserCheck size={16} />
+              Mark as Employee
+            </BulkActionButton>
+            <BulkActionButton
+              onClick={() => setShowBulkEmployeeConfirm('remove')}
+              disabled={isBulkProcessing}
+            >
+              <User size={16} />
+              Remove Employee
+            </BulkActionButton>
+            <BulkActionButton
+              onClick={() => setShowBulkPaymentLinksConfirm(true)}
+              disabled={isBulkProcessing}
+            >
+              <SendHorizontal size={16} />
+              Send Payment Links
+            </BulkActionButton>
+          </BulkActionBar>
+
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg lg:text-xl font-bold text-gray-900">
               Registrants ({filteredGolfers.length})
+              {selectedGolferIds.size > 0 && (
+                <span className="text-sm font-normal text-gray-500 ml-2">
+                  ({selectedGolferIds.size} selected)
+                </span>
+              )}
             </h2>
             <p className="text-xs text-gray-500 hidden sm:block">Click on a player to view details</p>
           </div>
@@ -1211,60 +1347,84 @@ export const AdminDashboard: React.FC = () => {
               {/* Mobile Card View */}
               <div className="lg:hidden space-y-3 max-h-[60vh] overflow-y-auto">
                 {filteredGolfers.map((golfer) => (
-                  <button
+                  <div
                     key={golfer.id}
-                    onClick={() => handleSelectGolfer(golfer)}
-                    className="w-full text-left bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 transition-colors"
+                    className={`w-full text-left bg-gray-50 rounded-lg p-4 border transition-colors ${
+                      selectedGolferIds.has(golfer.id) 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                    }`}
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-gray-900 truncate">{golfer.name}</p>
-                          {golfer.is_employee && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
-                              👤
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600 truncate">{golfer.email}</p>
-                      </div>
-                      <div className="flex flex-col items-end gap-1 ml-2">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                            golfer.payment_status === 'refunded'
-                              ? 'bg-purple-100 text-purple-800'
-                              : golfer.payment_status === 'paid'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-amber-100 text-amber-800'
-                          }`}
-                        >
-                          {golfer.payment_status === 'refunded' ? 'Refunded' : golfer.payment_status === 'paid' ? 'Paid' : 'Unpaid'}
-                        </span>
-                        {golfer.registration_status === 'cancelled' && (
-                          <span className="text-xs text-red-600 font-medium">Cancelled</span>
-                        )}
-                        {golfer.checked_in && golfer.registration_status !== 'cancelled' && (
-                          <span className="text-xs text-green-600 font-medium">✓ Checked In</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
-                      {golfer.company && <span>{golfer.company}</span>}
-                      <span className={!golfer.group_position_label ? 'text-amber-600 font-medium' : ''}>
-                        Group: {golfer.group_position_label || 'Unassigned'}
-                      </span>
-                      <span>Hole: {golfer.hole_number || '-'}</span>
-                      <span
-                        className={`${
-                          golfer.registration_status === 'confirmed'
-                            ? 'text-blue-600'
-                            : 'text-gray-500'
-                        }`}
+                    <div className="flex items-start gap-3">
+                      {/* Checkbox */}
+                      <div 
+                        className="flex-shrink-0 pt-1"
+                        onClick={(e) => toggleGolferSelection(golfer.id, e)}
                       >
-                        {golfer.registration_status === 'confirmed' ? 'Confirmed' : 'Waitlist'}
-                      </span>
+                        <input
+                          type="checkbox"
+                          checked={selectedGolferIds.has(golfer.id)}
+                          onChange={() => {}}
+                          className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        />
+                      </div>
+                      
+                      {/* Card content - clickable to open detail */}
+                      <button
+                        onClick={() => handleSelectGolfer(golfer)}
+                        className="flex-1 text-left"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-gray-900 truncate">{golfer.name}</p>
+                              {golfer.is_employee && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                                  👤
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-600 truncate">{golfer.email}</p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 ml-2">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                golfer.payment_status === 'refunded'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : golfer.payment_status === 'paid'
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-amber-100 text-amber-800'
+                              }`}
+                            >
+                              {golfer.payment_status === 'refunded' ? 'Refunded' : golfer.payment_status === 'paid' ? 'Paid' : 'Unpaid'}
+                            </span>
+                            {golfer.registration_status === 'cancelled' && (
+                              <span className="text-xs text-red-600 font-medium">Cancelled</span>
+                            )}
+                            {golfer.checked_in && golfer.registration_status !== 'cancelled' && (
+                              <span className="text-xs text-green-600 font-medium">✓ Checked In</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                          {golfer.company && <span>{golfer.company}</span>}
+                          <span className={!golfer.group_position_label ? 'text-amber-600 font-medium' : ''}>
+                            Group: {golfer.group_position_label || 'Unassigned'}
+                          </span>
+                          <span>Hole: {golfer.hole_number || '-'}</span>
+                          <span
+                            className={`${
+                              golfer.registration_status === 'confirmed'
+                                ? 'text-blue-600'
+                                : 'text-gray-500'
+                            }`}
+                          >
+                            {golfer.registration_status === 'confirmed' ? 'Confirmed' : 'Waitlist'}
+                          </span>
+                        </div>
+                      </button>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
 
@@ -1273,6 +1433,21 @@ export const AdminDashboard: React.FC = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      {/* Checkbox column */}
+                      <TableHead className="w-10">
+                        <input
+                          type="checkbox"
+                          checked={allVisibleSelected && filteredGolfers.length > 0}
+                          ref={(el) => {
+                            if (el) {
+                              el.indeterminate = someVisibleSelected && !allVisibleSelected;
+                            }
+                          }}
+                          onChange={toggleSelectAllVisible}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          title={allVisibleSelected ? "Deselect all visible" : "Select all visible"}
+                        />
+                      </TableHead>
                       <TableHead 
                         className="cursor-pointer hover:bg-gray-100 select-none"
                         onClick={() => handleSort('name')}
@@ -1383,10 +1558,44 @@ export const AdminDashboard: React.FC = () => {
                     {filteredGolfers.map((golfer) => (
                       <TableRow 
                         key={golfer.id} 
-                        className="cursor-pointer hover:bg-blue-50 transition-colors"
+                        className={`cursor-pointer transition-colors ${
+                          selectedGolferIds.has(golfer.id) 
+                            ? 'bg-blue-50 hover:bg-blue-100' 
+                            : 'hover:bg-blue-50'
+                        }`}
                         onClick={() => handleSelectGolfer(golfer)}
                       >
-                        <TableCell className="font-medium">{golfer.name}</TableCell>
+                        {/* Checkbox cell */}
+                        <TableCell className="w-10">
+                          <div onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={selectedGolferIds.has(golfer.id)}
+                              onChange={() => {
+                                setSelectedGolferIds(prev => {
+                                  const newSet = new Set(prev);
+                                  if (newSet.has(golfer.id)) {
+                                    newSet.delete(golfer.id);
+                                  } else {
+                                    newSet.add(golfer.id);
+                                  }
+                                  return newSet;
+                                });
+                              }}
+                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            {golfer.name}
+                            {golfer.is_employee && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700" title="Employee">
+                                👤
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>{golfer.email}</TableCell>
                         <TableCell>{golfer.company || '-'}</TableCell>
                         <TableCell>
@@ -2142,8 +2351,10 @@ export const AdminDashboard: React.FC = () => {
                         <div className="flex-1 min-w-0">
                           <p className="text-gray-700">{log.details}</p>
                           {/* Show what changed for golfer_updated actions */}
-                          {log.action === 'golfer_updated' && log.metadata?.changes && (() => {
-                            const changes = log.metadata.changes as Record<string, { from: string; to: string }>;
+                          {log.action === 'golfer_updated' && (() => {
+                            const changesData = log.metadata?.changes;
+                            if (typeof changesData !== 'object' || changesData === null) return null;
+                            const changes = changesData as Record<string, { from: string; to: string }>;
                             return (
                               <div className="mt-1 text-xs text-gray-500 space-y-0.5">
                                 {Object.entries(changes).map(([field, change]) => (
@@ -2277,6 +2488,230 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Bulk Employee Confirmation Modal */}
+      {showBulkEmployeeConfirm && (() => {
+        // Calculate which golfers can be updated vs will be skipped
+        const eligibleGolfers = selectedGolfers.filter(g => 
+          g.payment_status !== 'paid' && 
+          g.payment_status !== 'refunded' && 
+          g.registration_status !== 'cancelled' &&
+          g.is_employee !== (showBulkEmployeeConfirm === 'add')
+        );
+        const skippedGolfers = selectedGolfers.filter(g => 
+          g.payment_status === 'paid' || 
+          g.payment_status === 'refunded' || 
+          g.registration_status === 'cancelled' ||
+          g.is_employee === (showBulkEmployeeConfirm === 'add')
+        );
+        
+        return (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div 
+              className="absolute inset-0 bg-black/50"
+              onClick={() => !isBulkProcessing && setShowBulkEmployeeConfirm(null)}
+            />
+            <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6 animate-fade-in">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">
+                {showBulkEmployeeConfirm === 'add' ? 'Mark as Employees' : 'Remove Employee Status'}
+              </h3>
+              <p className="text-gray-600 mb-4">
+                {showBulkEmployeeConfirm === 'add' 
+                  ? 'Employee rate ($50) will apply when recording payments.'
+                  : 'Regular rate ($125) will apply when recording payments.'
+                }
+              </p>
+              
+              {/* Eligible golfers */}
+              {eligibleGolfers.length > 0 && (
+                <div className="bg-green-50 rounded-lg p-3 mb-3 max-h-32 overflow-y-auto">
+                  <p className="text-sm font-medium text-green-700 mb-2">
+                    ✓ Will be updated ({eligibleGolfers.length}):
+                  </p>
+                  <ul className="text-sm text-green-600 space-y-1">
+                    {eligibleGolfers.slice(0, 5).map(g => (
+                      <li key={g.id}>{g.name}</li>
+                    ))}
+                    {eligibleGolfers.length > 5 && (
+                      <li className="text-green-500">...and {eligibleGolfers.length - 5} more</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+              
+              {/* Skipped golfers */}
+              {skippedGolfers.length > 0 && (
+                <div className="bg-amber-50 rounded-lg p-3 mb-4 max-h-32 overflow-y-auto">
+                  <p className="text-sm font-medium text-amber-700 mb-2">
+                    ⚠ Will be skipped ({skippedGolfers.length}):
+                  </p>
+                  <ul className="text-sm text-amber-600 space-y-1">
+                    {skippedGolfers.slice(0, 5).map(g => (
+                      <li key={g.id} className="flex items-center gap-2">
+                        <span>{g.name}</span>
+                        <span className="text-xs">
+                          {g.payment_status === 'paid' ? '(already paid)' : 
+                           g.payment_status === 'refunded' ? '(refunded)' :
+                           g.registration_status === 'cancelled' ? '(cancelled)' :
+                           g.is_employee === (showBulkEmployeeConfirm === 'add') ? `(already ${showBulkEmployeeConfirm === 'add' ? 'employee' : 'non-employee'})` : ''}
+                        </span>
+                      </li>
+                    ))}
+                    {skippedGolfers.length > 5 && (
+                      <li className="text-amber-500">...and {skippedGolfers.length - 5} more</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+              
+              {eligibleGolfers.length === 0 && (
+                <div className="bg-red-50 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-red-700">
+                    No golfers can be updated. All selected golfers have already paid or are cancelled.
+                  </p>
+                </div>
+              )}
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowBulkEmployeeConfirm(null)}
+                  disabled={isBulkProcessing}
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleBulkSetEmployee(showBulkEmployeeConfirm === 'add')}
+                  disabled={isBulkProcessing || eligibleGolfers.length === 0}
+                  className={`flex-1 px-4 py-2 text-white rounded-lg font-medium transition-colors disabled:opacity-50 ${
+                    showBulkEmployeeConfirm === 'add' 
+                      ? 'bg-blue-600 hover:bg-blue-700' 
+                      : 'bg-amber-600 hover:bg-amber-700'
+                  }`}
+                >
+                  {isBulkProcessing ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="animate-spin" size={16} />
+                      Processing...
+                    </span>
+                  ) : eligibleGolfers.length === 0 ? (
+                    'No Golfers to Update'
+                  ) : (
+                    `Update ${eligibleGolfers.length} Golfer${eligibleGolfers.length === 1 ? '' : 's'}`
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Bulk Payment Links Confirmation Modal */}
+      {showBulkPaymentLinksConfirm && (() => {
+        // Calculate which golfers can receive links vs will be skipped
+        const eligibleGolfers = selectedGolfers.filter(g => 
+          g.payment_status !== 'paid' && 
+          g.payment_status !== 'refunded' && 
+          g.registration_status !== 'cancelled'
+        );
+        const skippedGolfers = selectedGolfers.filter(g => 
+          g.payment_status === 'paid' || 
+          g.payment_status === 'refunded' || 
+          g.registration_status === 'cancelled'
+        );
+        
+        return (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div 
+              className="absolute inset-0 bg-black/50"
+              onClick={() => !isBulkProcessing && setShowBulkPaymentLinksConfirm(false)}
+            />
+            <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6 animate-fade-in">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">
+                Send Payment Links
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Payment link emails will be sent to unpaid golfers so they can pay online.
+              </p>
+              
+              {/* Eligible golfers */}
+              {eligibleGolfers.length > 0 && (
+                <div className="bg-green-50 rounded-lg p-3 mb-3 max-h-32 overflow-y-auto">
+                  <p className="text-sm font-medium text-green-700 mb-2">
+                    ✓ Will receive email ({eligibleGolfers.length}):
+                  </p>
+                  <ul className="text-sm text-green-600 space-y-1">
+                    {eligibleGolfers.slice(0, 5).map(g => (
+                      <li key={g.id}>{g.name} - {g.email}</li>
+                    ))}
+                    {eligibleGolfers.length > 5 && (
+                      <li className="text-green-500">...and {eligibleGolfers.length - 5} more</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+              
+              {/* Skipped golfers */}
+              {skippedGolfers.length > 0 && (
+                <div className="bg-amber-50 rounded-lg p-3 mb-4 max-h-32 overflow-y-auto">
+                  <p className="text-sm font-medium text-amber-700 mb-2">
+                    ⚠ Will be skipped ({skippedGolfers.length}):
+                  </p>
+                  <ul className="text-sm text-amber-600 space-y-1">
+                    {skippedGolfers.slice(0, 5).map(g => (
+                      <li key={g.id} className="flex items-center gap-2">
+                        <span>{g.name}</span>
+                        <span className="text-xs">
+                          {g.payment_status === 'paid' ? '(already paid)' : 
+                           g.payment_status === 'refunded' ? '(refunded)' :
+                           g.registration_status === 'cancelled' ? '(cancelled)' : ''}
+                        </span>
+                      </li>
+                    ))}
+                    {skippedGolfers.length > 5 && (
+                      <li className="text-amber-500">...and {skippedGolfers.length - 5} more</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+              
+              {eligibleGolfers.length === 0 && (
+                <div className="bg-red-50 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-red-700">
+                    No golfers can receive payment links. All selected golfers have already paid or are cancelled.
+                  </p>
+                </div>
+              )}
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowBulkPaymentLinksConfirm(false)}
+                  disabled={isBulkProcessing}
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBulkSendPaymentLinks}
+                  disabled={isBulkProcessing || eligibleGolfers.length === 0}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {isBulkProcessing ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="animate-spin" size={16} />
+                      Sending...
+                    </span>
+                  ) : eligibleGolfers.length === 0 ? (
+                    'No Golfers to Send To'
+                  ) : (
+                    `Send to ${eligibleGolfers.length} Golfer${eligibleGolfers.length === 1 ? '' : 's'}`
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </AdminLayout>
   );
 };
