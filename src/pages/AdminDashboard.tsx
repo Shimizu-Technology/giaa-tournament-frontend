@@ -1345,7 +1345,7 @@ export const AdminDashboard: React.FC = () => {
           ) : (
             <>
               {/* Mobile Card View */}
-              <div className="lg:hidden space-y-3 max-h-[60vh] overflow-y-auto">
+              <div className="lg:hidden space-y-3 max-h-[60vh] overflow-y-auto overflow-x-hidden">
                 {filteredGolfers.map((golfer) => (
                   <div
                     key={golfer.id}
