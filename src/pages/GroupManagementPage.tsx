@@ -20,7 +20,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Users, GripVertical, Trash2, RefreshCw, Plus, CheckCircle, ChevronDown, ChevronUp, X, UserPlus, Check } from 'lucide-react';
+import { Users, GripVertical, Trash2, RefreshCw, Plus, CheckCircle, ChevronDown, ChevronUp, X, UserPlus, Check, ArrowUp, ArrowDown } from 'lucide-react';
 import { api, Golfer, Group } from '../services/api';
 
 interface DraggableGolferProps {
@@ -118,6 +118,8 @@ export const GroupManagementPage: React.FC = () => {
   const [bulkAddGroupId, setBulkAddGroupId] = useState<number | null>(null);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<number[]>([]);
   const [isAddingBulk, setIsAddingBulk] = useState(false);
+  const [viewMode, setViewMode] = useState<'group' | 'hole'>('group');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
   const groupsContainerRef = useRef<HTMLDivElement>(null);
   const newGroupRef = useRef<HTMLDivElement>(null);
@@ -151,9 +153,8 @@ export const GroupManagementPage: React.FC = () => {
       setUnassigned(golfersResponse.golfers.filter(g => 
         g.registration_status !== 'cancelled' && g.registration_status !== 'waitlist'
       ));
-      // Sort groups by group_number in descending order (newest first)
-      const sortedGroups = [...groupsData].sort((a, b) => b.group_number - a.group_number);
-      setGroups(sortedGroups);
+      // Store groups (sorting is handled by sortedGroups computed value)
+      setGroups(groupsData);
     } catch (err) {
       console.error('Error fetching data:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
@@ -398,6 +399,64 @@ export const GroupManagementPage: React.FC = () => {
     ? [...unassigned, ...groups.flatMap(g => g.golfers || [])].find(g => g.id.toString() === activeId) 
     : null;
 
+  // Compute sorted groups based on view mode and sort direction
+  const sortedGroups = React.useMemo(() => {
+    return [...groups].sort((a, b) => {
+      const comparison = a.group_number - b.group_number;
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [groups, sortDirection]);
+
+  // Compute groups organized by hole for the "By Hole" view
+  const groupsByHole = React.useMemo(() => {
+    if (viewMode !== 'hole') return null;
+    
+    // Create a map of hole numbers to groups
+    const holeMap = new Map<number | null, Group[]>();
+    
+    groups.forEach(group => {
+      const hole = group.hole_number || null;
+      if (!holeMap.has(hole)) {
+        holeMap.set(hole, []);
+      }
+      holeMap.get(hole)!.push(group);
+    });
+    
+    // Sort groups within each hole by group_number
+    holeMap.forEach((holeGroups, hole) => {
+      holeGroups.sort((a, b) => {
+        const comparison = a.group_number - b.group_number;
+        return sortDirection === 'asc' ? comparison : -comparison;
+      });
+      holeMap.set(hole, holeGroups);
+    });
+    
+    // Sort entries: holes 1-18, then unassigned (null)
+    const sortedEntries: { hole: number | null; groups: Group[] }[] = [];
+    
+    // Add holes in order based on sort direction
+    if (sortDirection === 'asc') {
+      for (let i = 1; i <= 18; i++) {
+        if (holeMap.has(i)) {
+          sortedEntries.push({ hole: i, groups: holeMap.get(i)! });
+        }
+      }
+    } else {
+      for (let i = 18; i >= 1; i--) {
+        if (holeMap.has(i)) {
+          sortedEntries.push({ hole: i, groups: holeMap.get(i)! });
+        }
+      }
+    }
+    
+    // Add unassigned at the end
+    if (holeMap.has(null)) {
+      sortedEntries.push({ hole: null, groups: holeMap.get(null)! });
+    }
+    
+    return sortedEntries;
+  }, [groups, viewMode, sortDirection]);
+
   if (loading) {
     return (
       <AdminLayout>
@@ -429,7 +488,42 @@ export const GroupManagementPage: React.FC = () => {
                 {groups.length} group{groups.length !== 1 ? 's' : ''} • {unassigned.length} unassigned
               </p>
             </div>
-            <div className="flex gap-2 w-full sm:w-auto">
+            <div className="flex gap-2 w-full sm:w-auto flex-wrap">
+              {/* View Mode Toggle */}
+              <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+                <button
+                  onClick={() => setViewMode('group')}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    viewMode === 'group'
+                      ? 'bg-blue-900 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  By Group
+                </button>
+                <button
+                  onClick={() => setViewMode('hole')}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    viewMode === 'hole'
+                      ? 'bg-blue-900 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  By Hole
+                </button>
+              </div>
+              {/* Sort Direction Toggle */}
+              <button
+                onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                title={sortDirection === 'asc' ? 'Sorted low to high' : 'Sorted high to low'}
+              >
+                {sortDirection === 'asc' ? (
+                  <ArrowUp size={16} />
+                ) : (
+                  <ArrowDown size={16} />
+                )}
+              </button>
               <Button 
                 variant="outline" 
                 onClick={() => fetchData()}
@@ -550,8 +644,9 @@ export const GroupManagementPage: React.FC = () => {
                     </Button>
                   </div>
                 </Card>
-              ) : (
-                groups.map((group) => {
+              ) : viewMode === 'group' ? (
+                // View by Group (original view)
+                sortedGroups.map((group) => {
                   const isOverThisGroup = overGroupId === group.id;
                   const golferCount = group.golfers?.length || 0;
                   const canDropHere = golferCount < 4;
@@ -687,6 +782,174 @@ export const GroupManagementPage: React.FC = () => {
                     </div>
                   );
                 })
+              ) : (
+                // View by Hole
+                groupsByHole?.map(({ hole, groups: holeGroups }) => (
+                  <div key={hole ?? 'unassigned'} className="space-y-3">
+                    {/* Hole Header */}
+                    <div className="sticky top-0 z-10 bg-gray-100 rounded-lg px-4 py-2 border border-gray-200 shadow-sm">
+                      <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                        {hole !== null ? (
+                          <>
+                            <span className="w-8 h-8 bg-blue-900 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                              {hole}
+                            </span>
+                            Hole {hole}
+                          </>
+                        ) : (
+                          <>
+                            <span className="w-8 h-8 bg-gray-400 text-white rounded-full flex items-center justify-center text-sm">
+                              ?
+                            </span>
+                            No Hole Assigned
+                          </>
+                        )}
+                        <span className="text-sm font-normal text-gray-500 ml-2">
+                          ({holeGroups.length} group{holeGroups.length !== 1 ? 's' : ''})
+                        </span>
+                      </h3>
+                    </div>
+                    
+                    {/* Groups for this hole */}
+                    {holeGroups.map((group) => {
+                      const isOverThisGroup = overGroupId === group.id;
+                      const golferCount = group.golfers?.length || 0;
+                      const canDropHere = golferCount < 4;
+                      const isNewGroup = newGroupId === group.id;
+
+                      return (
+                        <div
+                          key={group.id}
+                          ref={isNewGroup ? newGroupRef : undefined}
+                          className="ml-4"
+                        >
+                          <Card 
+                            className={`p-3 lg:p-6 transition-all duration-500 ${
+                              golferCount === 4 
+                                ? 'border-2 border-green-500' 
+                                : isNewGroup 
+                                ? 'border-2 border-blue-500 ring-4 ring-blue-100 animate-pulse' 
+                                : ''
+                            }`}
+                          >
+                            <div className="flex items-start justify-between mb-3 lg:mb-4">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="text-base lg:text-lg font-bold text-gray-900 mb-1 lg:mb-2 flex items-center gap-2 flex-wrap">
+                                  Group {group.group_number}
+                                  {golferCount === 4 && (
+                                    <span className="text-xs lg:text-sm font-normal text-green-600">
+                                      (Complete)
+                                    </span>
+                                  )}
+                                  {isNewGroup && (
+                                    <span className="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
+                                      New!
+                                    </span>
+                                  )}
+                                </h3>
+                                <div className="flex items-center gap-2 lg:gap-4">
+                                  <Select
+                                    label="Hole"
+                                    value={group.hole_number?.toString() || ''}
+                                    onChange={(e) => updateGroupHole(group.id, parseInt(e.target.value))}
+                                    options={[
+                                      { value: '', label: 'No hole' },
+                                      ...Array.from({ length: 18 }, (_, i) => ({
+                                        value: String(i + 1),
+                                        label: `Hole ${i + 1}`,
+                                      })),
+                                    ]}
+                                  />
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => deleteGroup(group.id)}
+                                className="text-red-500 hover:text-red-700 p-2 touch-manipulation"
+                                title="Delete group"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+
+                            <div className="space-y-2">
+                              {group.golfers?.map((player, index) => {
+                                const positions = ['A', 'B', 'C', 'D'];
+                                const positionLabel = `${group.group_number}${positions[index]}`;
+                                
+                                return (
+                                  <div
+                                    key={player.id}
+                                    className="flex items-center gap-2 lg:gap-3 p-2 lg:p-3 bg-blue-50 border border-blue-200 rounded-lg"
+                                  >
+                                    <div className="w-7 h-7 lg:w-8 lg:h-8 bg-blue-900 text-white rounded-full flex items-center justify-center font-bold text-xs lg:text-sm flex-shrink-0">
+                                      {positionLabel}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium text-gray-900 text-sm lg:text-base truncate">{player.name}</p>
+                                      <p className="text-xs text-gray-500 truncate hidden sm:block">{player.email}</p>
+                                    </div>
+                                    <button
+                                      onClick={() => removeFromGroup(group.id, player.id)}
+                                      className="text-red-500 hover:text-red-700 p-1.5 touch-manipulation flex-shrink-0"
+                                      title="Remove from group"
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+
+                              {golferCount < 4 && (
+                                <DroppableGroupZone 
+                                  groupId={group.id} 
+                                  isOver={isOverThisGroup}
+                                  canDrop={canDropHere}
+                                >
+                                  <p className="text-gray-500 text-xs lg:text-sm mb-1 lg:mb-2">
+                                    {4 - golferCount} spot{4 - golferCount !== 1 ? 's' : ''} remaining
+                                  </p>
+                                  <p className="text-xs text-gray-400 mb-2 lg:mb-3 hidden lg:block">
+                                    {isOverThisGroup && canDropHere 
+                                      ? '✓ Drop here to add player!' 
+                                      : 'Drag players from the left to add them'}
+                                  </p>
+                                  {unassigned.length > 0 && !activeId && (
+                                    <div className="flex flex-col sm:flex-row gap-2">
+                                      <select
+                                        onChange={(e) => {
+                                          if (e.target.value) {
+                                            addToGroup(group.id, parseInt(e.target.value));
+                                            e.target.value = '';
+                                          }
+                                        }}
+                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                                        defaultValue=""
+                                      >
+                                        <option value="">Add one player...</option>
+                                        {unassigned.map(golfer => (
+                                          <option key={golfer.id} value={golfer.id}>
+                                            {golfer.name}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <button
+                                        onClick={() => openBulkAddModal(group.id)}
+                                        className="flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-900 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors"
+                                      >
+                                        <UserPlus size={16} />
+                                        <span>Add Multiple</span>
+                                      </button>
+                                    </div>
+                                  )}
+                                </DroppableGroupZone>
+                              )}
+                            </div>
+                          </Card>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))
               )}
             </div>
           </div>
