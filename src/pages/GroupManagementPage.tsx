@@ -118,7 +118,7 @@ export const GroupManagementPage: React.FC = () => {
   const [bulkAddGroupId, setBulkAddGroupId] = useState<number | null>(null);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<number[]>([]);
   const [isAddingBulk, setIsAddingBulk] = useState(false);
-  const [viewMode, setViewMode] = useState<'group' | 'hole'>('group');
+  const [viewMode, setViewMode] = useState<'group' | 'hole'>('hole');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
   const groupsContainerRef = useRef<HTMLDivElement>(null);
