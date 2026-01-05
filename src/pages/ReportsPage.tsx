@@ -27,6 +27,7 @@ export const ReportsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ReportTab>('registrations');
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'confirmed' | 'cancelled' | 'waitlist'>('all');
 
   const fetchData = async () => {
     try {
@@ -54,16 +55,27 @@ export const ReportsPage: React.FC = () => {
     fetchData();
   }, []);
 
-  // Filter golfers based on search
+  // Filter golfers based on search and status
   const filteredGolfers = useMemo(() => {
-    if (!searchTerm) return golfers;
-    const search = searchTerm.toLowerCase();
-    return golfers.filter(g => 
-      g.name.toLowerCase().includes(search) ||
-      g.email?.toLowerCase().includes(search) ||
-      g.company?.toLowerCase().includes(search)
-    );
-  }, [golfers, searchTerm]);
+    let filtered = golfers;
+    
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(g => g.registration_status === statusFilter);
+    }
+    
+    // Apply search filter
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      filtered = filtered.filter(g => 
+        g.name.toLowerCase().includes(search) ||
+        g.email?.toLowerCase().includes(search) ||
+        g.company?.toLowerCase().includes(search)
+      );
+    }
+    
+    return filtered;
+  }, [golfers, searchTerm, statusFilter]);
 
   // Compute report data
   // Only include confirmed golfers for check-in sheet (exclude cancelled and waitlist)
@@ -162,7 +174,8 @@ export const ReportsPage: React.FC = () => {
         break;
       }
       case 'contacts': {
-        const data = filteredGolfers.map(g => ({
+        // Only export confirmed registrants for contact list
+        const data = confirmedGolfers.map(g => ({
           'Name': g.name,
           'Email': g.email,
           'Phone': g.phone || '-',
@@ -205,9 +218,11 @@ export const ReportsPage: React.FC = () => {
             <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
               golfer.registration_status === 'confirmed' 
                 ? 'bg-green-100 text-green-700' 
+                : golfer.registration_status === 'cancelled'
+                ? 'bg-red-100 text-red-700'
                 : 'bg-amber-100 text-amber-700'
             }`}>
-              {golfer.registration_status === 'confirmed' ? 'conf' : 'wait'}
+              {golfer.registration_status === 'confirmed' ? 'conf' : golfer.registration_status === 'cancelled' ? 'canc' : 'wait'}
             </span>
           )}
           {showPayment && (
@@ -365,8 +380,21 @@ export const ReportsPage: React.FC = () => {
               {/* Registrations Tab */}
               {activeTab === 'registrations' && (
                 <>
-                  <div className="p-2 lg:p-4 border-b bg-gray-50">
+                  <div className="p-2 lg:p-4 border-b bg-gray-50 flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs lg:text-sm text-gray-600">{filteredGolfers.length} registrations</span>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-500">Status:</label>
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value as 'all' | 'confirmed' | 'cancelled' | 'waitlist')}
+                        className="text-xs lg:text-sm border border-gray-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="all">All</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="waitlist">Waitlist</option>
+                      </select>
+                    </div>
                   </div>
                   
                   {/* Mobile View - Card layout */}
@@ -402,6 +430,8 @@ export const ReportsPage: React.FC = () => {
                               <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                                 g.registration_status === 'confirmed' 
                                   ? 'bg-green-100 text-green-800' 
+                                  : g.registration_status === 'cancelled'
+                                  ? 'bg-red-100 text-red-800'
                                   : 'bg-amber-100 text-amber-800'
                               }`}>
                                 {g.registration_status}
@@ -687,16 +717,16 @@ export const ReportsPage: React.FC = () => {
                 </>
               )}
 
-              {/* Contacts Tab */}
+              {/* Contacts Tab - Only show confirmed registrants */}
               {activeTab === 'contacts' && (
                 <>
                   <div className="p-2 lg:p-4 border-b bg-gray-50">
-                    <span className="text-xs lg:text-sm text-gray-600">{filteredGolfers.length} contacts</span>
+                    <span className="text-xs lg:text-sm text-gray-600">{confirmedGolfers.length} contacts</span>
                   </div>
                   
                   {/* Mobile */}
                   <div className="lg:hidden max-h-[60vh] overflow-y-auto">
-                    {filteredGolfers.map(g => (
+                    {confirmedGolfers.map(g => (
                       <div key={g.id} className="p-3 border-b border-gray-100 last:border-b-0">
                         <p className="font-medium text-gray-900">{g.name}</p>
                         <div className="mt-1 space-y-0.5">
@@ -711,7 +741,7 @@ export const ReportsPage: React.FC = () => {
                         </div>
                       </div>
                     ))}
-                    {filteredGolfers.length === 0 && (
+                    {confirmedGolfers.length === 0 && (
                       <div className="p-4 text-center text-gray-500 text-sm">No contacts found</div>
                     )}
                   </div>
@@ -728,7 +758,7 @@ export const ReportsPage: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {filteredGolfers.map(g => (
+                        {confirmedGolfers.map(g => (
                           <tr key={g.id} className="hover:bg-gray-50">
                             <td className="px-3 py-2 font-medium">{g.name}</td>
                             <td className="px-3 py-2">

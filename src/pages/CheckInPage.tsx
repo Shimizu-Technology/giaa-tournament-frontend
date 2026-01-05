@@ -477,13 +477,13 @@ export const CheckInPage: React.FC = () => {
     }
   }, [successMessage]);
 
-  // Calculate counts - only count confirmed golfers for paid/unpaid tabs
+  // Calculate counts - only count confirmed golfers (exclude cancelled)
   const counts = useMemo(() => {
     const confirmed = golfers.filter(g => g.registration_status === 'confirmed');
     const pendingConfirmed = confirmed.filter(g => !g.checked_in);
     return {
-      total: golfers.length,
-      checkedIn: golfers.filter(g => g.checked_in).length,
+      total: confirmed.length,
+      checkedIn: confirmed.filter(g => g.checked_in).length,
       paidPending: pendingConfirmed.filter(g => g.payment_status === 'paid').length,
       unpaidPending: pendingConfirmed.filter(g => g.payment_status === 'unpaid').length,
     };
