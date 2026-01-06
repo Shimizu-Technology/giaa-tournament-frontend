@@ -82,8 +82,9 @@ export const AdminDashboard: React.FC = () => {
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
   // Table sorting state
-  type SortColumn = 'name' | 'email' | 'company' | 'payment' | 'status' | 'group' | 'hole' | 'checked_in';
+  type SortColumn = 'name' | 'email' | 'company' | 'payment' | 'status' | 'hole' | 'checked_in' | 'registered';
   const [sortColumn, setSortColumn] = useState<SortColumn>('name');
+
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const handleSort = (column: SortColumn) => {
@@ -195,7 +196,6 @@ export const AdminDashboard: React.FC = () => {
           aVal = statusOrder[a.registration_status as keyof typeof statusOrder] ?? 3;
           bVal = statusOrder[b.registration_status as keyof typeof statusOrder] ?? 3;
           break;
-        case 'group':
         case 'hole':
           // Sort by hole_position_label (e.g., "7A", "7B", "14")
           aVal = a.hole_position_label || 'zzz'; // Unassigned at end
@@ -204,6 +204,10 @@ export const AdminDashboard: React.FC = () => {
         case 'checked_in':
           aVal = a.checked_in ? 0 : 1; // Checked in first
           bVal = b.checked_in ? 0 : 1;
+          break;
+        case 'registered':
+          aVal = new Date(a.created_at).getTime();
+          bVal = new Date(b.created_at).getTime();
           break;
       }
 
@@ -1508,6 +1512,19 @@ export const AdminDashboard: React.FC = () => {
                           )}
                         </div>
                       </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-gray-100 select-none"
+                        onClick={() => handleSort('registered')}
+                      >
+                        <div className="flex items-center gap-1">
+                          Registered
+                          {sortColumn === 'registered' ? (
+                            sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+                          ) : (
+                            <ArrowUpDown size={14} className="text-gray-400" />
+                          )}
+                        </div>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1593,6 +1610,9 @@ export const AdminDashboard: React.FC = () => {
                           ) : (
                             <span className="text-gray-400">No</span>
                           )}
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600 whitespace-nowrap">
+                          {formatRegistrationDate(golfer.created_at).date}, {formatRegistrationDate(golfer.created_at).time}
                         </TableCell>
                       </TableRow>
                     ))}
