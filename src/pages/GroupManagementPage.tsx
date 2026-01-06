@@ -231,7 +231,7 @@ export const GroupManagementPage: React.FC = () => {
         
         await api.addGolferToGroup(groupId, activeGolferId);
         await fetchData(false);
-        setSuccessMessage(`${golfer.name} added to Group ${group.group_number}`);
+        setSuccessMessage(`${golfer.name} added to Hole ${group.hole_position_label || group.group_number}`);
       } catch (err) {
         console.error('Error adding golfer to group:', err);
         setError(err instanceof Error ? err.message : 'Failed to add golfer to group');
@@ -248,7 +248,7 @@ export const GroupManagementPage: React.FC = () => {
       
       setGroups(prev => [newGroup, ...prev]);
       setNewGroupId(newGroup.id);
-      setSuccessMessage(`Group ${newGroup.group_number} created!`);
+      setSuccessMessage(`Hole ${newGroup.hole_position_label || newGroup.group_number} created!`);
       
       if (groupsContainerRef.current) {
         groupsContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
@@ -278,7 +278,7 @@ export const GroupManagementPage: React.FC = () => {
       await api.addGolferToGroup(groupId, golferId);
       await fetchData(false);
       if (golfer && group) {
-        setSuccessMessage(`${golfer.name} added to Group ${group.group_number}`);
+        setSuccessMessage(`${golfer.name} added to Hole ${group.hole_position_label || group.group_number}`);
       }
     } catch (err) {
       console.error('Error adding golfer to group:', err);
@@ -335,7 +335,7 @@ export const GroupManagementPage: React.FC = () => {
       
       await api.deleteGroup(groupId);
       await fetchData(false);
-      setSuccessMessage(`Group ${group?.group_number} deleted`);
+      setSuccessMessage(`Hole ${group?.hole_position_label || group?.group_number} deleted`);
     } catch (err) {
       console.error('Error deleting group:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete group');
@@ -379,7 +379,7 @@ export const GroupManagementPage: React.FC = () => {
       }
       
       await fetchData(false);
-      setSuccessMessage(`Added ${playersToAdd.length} player${playersToAdd.length !== 1 ? 's' : ''} to Group ${group.group_number}`);
+      setSuccessMessage(`Added ${playersToAdd.length} player${playersToAdd.length !== 1 ? 's' : ''} to Hole ${group.hole_position_label || group.group_number}`);
       closeBulkAddModal();
     } catch (err) {
       console.error('Error bulk adding players:', err);
