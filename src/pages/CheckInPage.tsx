@@ -83,15 +83,9 @@ const PlayerDetailPanel: React.FC<{
           <p className="font-medium text-gray-900 text-sm">{golfer.phone || '-'}</p>
         </div>
         <div className="bg-gray-50 p-3 rounded-lg">
-          <p className="text-xs text-gray-600 mb-1">Group</p>
-          <p className="font-medium text-gray-900 text-sm">
-            {golfer.group_position_label || 'Not Assigned'}
-          </p>
-        </div>
-        <div className="bg-gray-50 p-3 rounded-lg">
           <p className="text-xs text-gray-600 mb-1">Hole</p>
           <p className="font-medium text-gray-900 text-sm">
-            {golfer.hole_number ? `Hole ${golfer.hole_number}` : 'Not Assigned'}
+            {golfer.hole_position_label && golfer.hole_position_label !== 'Unassigned' ? golfer.hole_position_label : 'Not Assigned'}
           </p>
         </div>
       </div>
@@ -1021,7 +1015,7 @@ export const CheckInPage: React.FC = () => {
                           <p className="text-xs lg:text-sm text-gray-600 truncate">{golfer.email}</p>
                           <div className="flex items-center gap-2 mt-0.5">
                             <span className="text-[10px] lg:text-xs text-gray-500">
-                              {golfer.group_position_label || 'No group'}
+                              Hole {golfer.hole_position_label || 'Unassigned'}
                             </span>
                             {golfer.company && (
                               <span className="text-[10px] lg:text-xs text-gray-500 truncate">• {golfer.company}</span>

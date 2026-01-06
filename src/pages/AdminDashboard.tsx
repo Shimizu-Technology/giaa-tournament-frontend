@@ -37,7 +37,6 @@ export const AdminDashboard: React.FC = () => {
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [checkinFilter, setCheckinFilter] = useState('all');
-  const [groupFilter, setGroupFilter] = useState('all');
   const [holeFilter, setHoleFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedGolfer, setSelectedGolfer] = useState<Golfer | null>(null);
@@ -153,17 +152,13 @@ export const AdminDashboard: React.FC = () => {
         const isCheckedIn = checkinFilter === 'checked-in';
         if (golfer.checked_in !== isCheckedIn) return false;
       }
-      if (groupFilter !== 'all') {
-        if (groupFilter === 'unassigned') {
-          if (golfer.group_position_label) return false;
-        } else {
-          const groupNum = parseInt(groupFilter);
-          if (!golfer.group || golfer.group.group_number !== groupNum) return false;
-        }
-      }
       if (holeFilter !== 'all') {
-        const holeNum = parseInt(holeFilter);
-        if (golfer.hole_number !== holeNum) return false;
+        if (holeFilter === 'unassigned') {
+          if (golfer.hole_position_label && golfer.hole_position_label !== 'Unassigned') return false;
+        } else {
+          const holeNum = parseInt(holeFilter);
+          if (golfer.hole_number !== holeNum) return false;
+        }
       }
 
       return true;
@@ -176,8 +171,9 @@ export const AdminDashboard: React.FC = () => {
 
       switch (sortColumn) {
         case 'name':
-          aVal = a.name?.toLowerCase() || '';
-          bVal = b.name?.toLowerCase() || '';
+          // Sort by last name (extracted from full name)
+          aVal = a.last_name?.toLowerCase() || '';
+          bVal = b.last_name?.toLowerCase() || '';
           break;
         case 'email':
           aVal = a.email?.toLowerCase() || '';
@@ -200,12 +196,10 @@ export const AdminDashboard: React.FC = () => {
           bVal = statusOrder[b.registration_status as keyof typeof statusOrder] ?? 3;
           break;
         case 'group':
-          aVal = a.group_position_label || 'zzz'; // Unassigned at end
-          bVal = b.group_position_label || 'zzz';
-          break;
         case 'hole':
-          aVal = a.hole_number || 999;
-          bVal = b.hole_number || 999;
+          // Sort by hole_position_label (e.g., "7A", "7B", "14")
+          aVal = a.hole_position_label || 'zzz'; // Unassigned at end
+          bVal = b.hole_position_label || 'zzz';
           break;
         case 'checked_in':
           aVal = a.checked_in ? 0 : 1; // Checked in first
@@ -217,7 +211,7 @@ export const AdminDashboard: React.FC = () => {
       if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [golfers, searchTerm, paymentFilter, paymentMethodFilter, statusFilter, checkinFilter, groupFilter, holeFilter, sortColumn, sortDirection]);
+  }, [golfers, searchTerm, paymentFilter, paymentMethodFilter, statusFilter, checkinFilter, holeFilter, sortColumn, sortDirection]);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -225,17 +219,15 @@ export const AdminDashboard: React.FC = () => {
     if (paymentMethodFilter !== 'all') count++;
     if (statusFilter !== 'all') count++;
     if (checkinFilter !== 'all') count++;
-    if (groupFilter !== 'all') count++;
     if (holeFilter !== 'all') count++;
     return count;
-  }, [paymentFilter, paymentMethodFilter, statusFilter, checkinFilter, groupFilter, holeFilter]);
+  }, [paymentFilter, paymentMethodFilter, statusFilter, checkinFilter, holeFilter]);
 
   const clearAllFilters = () => {
     setPaymentFilter('all');
     setPaymentMethodFilter('all');
     setStatusFilter('all');
     setCheckinFilter('all');
-    setGroupFilter('all');
     setHoleFilter('all');
     setSearchTerm('');
   };
@@ -363,8 +355,7 @@ export const AdminDashboard: React.FC = () => {
         'Payment Method': g.payment_method || '',
         'Receipt #': g.receipt_number || '',
         'Registration Status': g.registration_status,
-        'Group': g.group_position_label || 'Unassigned',
-        'Hole': g.hole_number || '-',
+        'Hole': g.hole_position_label || 'Unassigned',
         'Checked In': g.checked_in ? 'Yes' : 'No',
         'Registered Date': regDate.date,
         'Registered Time': regDate.time,
@@ -378,80 +369,74 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const exportCheckInSheet = () => {
-    // Sort by hole number, then by group position
+    // Sort by hole number, then by hole position label
     const sorted = [...golfers]
       .filter(g => g.registration_status === 'confirmed')
       .sort((a, b) => {
         const holeA = a.hole_number || 999;
         const holeB = b.hole_number || 999;
         if (holeA !== holeB) return holeA - holeB;
-        return (a.group_position_label || 'ZZZ').localeCompare(b.group_position_label || 'ZZZ');
+        return (a.hole_position_label || 'ZZZ').localeCompare(b.hole_position_label || 'ZZZ');
       });
     
     const data = sorted.map(g => ({
       'Name': g.name,
       'Company': g.company || '',
-      'Group': g.group_position_label || 'Unassigned',
-      'Hole': g.hole_number || '-',
+      'Hole': g.hole_position_label || 'Unassigned',
       'Paid': g.payment_status === 'paid' ? '✓' : '',
       'Checked In': g.checked_in ? '✓' : '',
     }));
     
     const ws = XLSX.utils.json_to_sheet(data);
     // Set column widths
-    ws['!cols'] = [{ wch: 25 }, { wch: 20 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 12 }];
+    ws['!cols'] = [{ wch: 25 }, { wch: 20 }, { wch: 10 }, { wch: 8 }, { wch: 12 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Check-In Sheet');
     downloadExcel(wb, 'check-in-sheet');
   };
 
   const exportGroupsByHole = () => {
-    // Get all unique holes and sort them
-    const holes = [...new Set(golfers.filter(g => g.hole_number).map(g => g.hole_number))].sort((a, b) => (a || 0) - (b || 0));
+    // Get all unique hole position labels and organize by them
+    const holeLabels = [...new Set(golfers.filter(g => g.hole_position_label && g.hole_position_label !== 'Unassigned').map(g => g.hole_position_label))];
     
-    const data: { Hole: number | string; Group: string; 'Player A': string; 'Player B': string; 'Player C': string; 'Player D': string }[] = [];
+    // Sort by hole number (extract number from label like "7A" -> 7)
+    holeLabels.sort((a, b) => {
+      const numA = parseInt(a?.replace(/[A-Z]/g, '') || '999');
+      const numB = parseInt(b?.replace(/[A-Z]/g, '') || '999');
+      if (numA !== numB) return numA - numB;
+      // Same hole number, sort by letter
+      return (a || '').localeCompare(b || '');
+    });
     
-    holes.forEach(hole => {
-      const playersAtHole = golfers.filter(g => g.hole_number === hole);
-      // Group by group number
-      const groups = [...new Set(playersAtHole.map(g => g.group_position_label?.replace(/[ABCD]$/, '')))].filter(Boolean);
-      
-      groups.forEach(groupNum => {
-        const groupPlayers = playersAtHole.filter(g => g.group_position_label?.startsWith(groupNum || ''));
-        const row: { Hole: number | string; Group: string; 'Player A': string; 'Player B': string; 'Player C': string; 'Player D': string } = {
-          'Hole': hole || '-',
-          'Group': groupNum || '',
-          'Player A': '',
-          'Player B': '',
-          'Player C': '',
-          'Player D': '',
-        };
-        groupPlayers.forEach(p => {
-          const pos = p.group_position_label?.slice(-1);
-          if (pos === 'A') row['Player A'] = p.name;
-          if (pos === 'B') row['Player B'] = p.name;
-          if (pos === 'C') row['Player C'] = p.name;
-          if (pos === 'D') row['Player D'] = p.name;
-        });
-        data.push(row);
-      });
+    const data: { 'Hole': string; 'Player 1': string; 'Player 2': string; 'Player 3': string; 'Player 4': string }[] = [];
+    
+    holeLabels.forEach(label => {
+      const playersInGroup = golfers.filter(g => g.hole_position_label === label);
+      const row: { 'Hole': string; 'Player 1': string; 'Player 2': string; 'Player 3': string; 'Player 4': string } = {
+        'Hole': label || '',
+        'Player 1': playersInGroup[0]?.name || '',
+        'Player 2': playersInGroup[1]?.name || '',
+        'Player 3': playersInGroup[2]?.name || '',
+        'Player 4': playersInGroup[3]?.name || '',
+      };
+      data.push(row);
     });
     
     // Add unassigned players
-    const unassigned = golfers.filter(g => !g.hole_number && g.registration_status === 'confirmed');
+    const unassigned = golfers.filter(g => (!g.hole_position_label || g.hole_position_label === 'Unassigned') && g.registration_status === 'confirmed');
     if (unassigned.length > 0) {
-      data.push({ Hole: '', Group: '', 'Player A': '', 'Player B': '', 'Player C': '', 'Player D': '' });
-      data.push({ Hole: 'UNASSIGNED', Group: '', 'Player A': '', 'Player B': '', 'Player C': '', 'Player D': '' });
+      data.push({ 'Hole': '', 'Player 1': '', 'Player 2': '', 'Player 3': '', 'Player 4': '' });
+      data.push({ 'Hole': 'UNASSIGNED', 'Player 1': '', 'Player 2': '', 'Player 3': '', 'Player 4': '' });
       unassigned.forEach(g => {
-        data.push({ Hole: '', Group: '', 'Player A': g.name, 'Player B': '', 'Player C': '', 'Player D': '' });
+        data.push({ 'Hole': '', 'Player 1': g.name, 'Player 2': '', 'Player 3': '', 'Player 4': '' });
       });
     }
     
     const ws = XLSX.utils.json_to_sheet(data);
-    ws['!cols'] = [{ wch: 8 }, { wch: 8 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 22 }];
+    ws['!cols'] = [{ wch: 10 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 22 }];
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Groups by Hole');
-    downloadExcel(wb, 'groups-by-hole');
+    XLSX.utils.book_append_sheet(wb, ws, 'Foursomes by Hole');
+    downloadExcel(wb, 'foursomes-by-hole');
   };
 
   const exportPaymentSummary = () => {
@@ -530,8 +515,7 @@ export const AdminDashboard: React.FC = () => {
         'Payment Method': g.payment_method || '',
         'Receipt #': g.receipt_number || '',
         'Registration Status': g.registration_status,
-        'Group': g.group_position_label || 'Unassigned',
-        'Hole': g.hole_number || '-',
+        'Hole': g.hole_position_label || 'Unassigned',
         'Checked In': g.checked_in ? 'Yes' : 'No',
         'Registered Date': regDate.date,
         'Registered Time': regDate.time,
@@ -547,18 +531,17 @@ export const AdminDashboard: React.FC = () => {
         const holeA = a.hole_number || 999;
         const holeB = b.hole_number || 999;
         if (holeA !== holeB) return holeA - holeB;
-        return (a.group_position_label || 'ZZZ').localeCompare(b.group_position_label || 'ZZZ');
+        return (a.hole_position_label || 'ZZZ').localeCompare(b.hole_position_label || 'ZZZ');
       })
       .map(g => ({
         'Name': g.name,
         'Company': g.company || '',
-        'Group': g.group_position_label || 'Unassigned',
-        'Hole': g.hole_number || '-',
+        'Hole': g.hole_position_label || 'Unassigned',
         'Paid': g.payment_status === 'paid' ? '✓' : '',
         'Checked In': g.checked_in ? '✓' : '',
       }));
     const ws2 = XLSX.utils.json_to_sheet(checkInData);
-    ws2['!cols'] = [{ wch: 25 }, { wch: 20 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 12 }];
+    ws2['!cols'] = [{ wch: 25 }, { wch: 20 }, { wch: 10 }, { wch: 8 }, { wch: 12 }];
     XLSX.utils.book_append_sheet(wb, ws2, 'Check-In Sheet');
     
     // Sheet 3: Payment Summary
@@ -1267,25 +1250,12 @@ export const AdminDashboard: React.FC = () => {
               />
 
               <Select
-                label="Group"
-                value={groupFilter}
-                onChange={(e) => setGroupFilter(e.target.value)}
-                options={[
-                  { value: 'all', label: 'All' },
-                  { value: 'unassigned', label: 'Unassigned' },
-                  ...Array.from({ length: 40 }, (_, i) => ({
-                    value: String(i + 1),
-                    label: `Group ${i + 1}`,
-                  })),
-                ]}
-              />
-
-              <Select
                 label="Hole"
                 value={holeFilter}
                 onChange={(e) => setHoleFilter(e.target.value)}
                 options={[
                   { value: 'all', label: 'All' },
+                  { value: 'unassigned', label: 'Unassigned' },
                   ...Array.from({ length: 18 }, (_, i) => ({
                     value: String(i + 1),
                     label: `Hole ${i + 1}`,
@@ -1408,10 +1378,9 @@ export const AdminDashboard: React.FC = () => {
                         </div>
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
                           {golfer.company && <span>{golfer.company}</span>}
-                          <span className={!golfer.group_position_label ? 'text-amber-600 font-medium' : ''}>
-                            Group: {golfer.group_position_label || 'Unassigned'}
+                          <span className={!golfer.hole_position_label || golfer.hole_position_label === 'Unassigned' ? 'text-amber-600 font-medium' : ''}>
+                            Hole: {golfer.hole_position_label || 'Unassigned'}
                           </span>
-                          <span>Hole: {golfer.hole_number || '-'}</span>
                           <span
                             className={`${
                               golfer.registration_status === 'confirmed'
@@ -1507,19 +1476,6 @@ export const AdminDashboard: React.FC = () => {
                         <div className="flex items-center gap-1">
                           Status
                           {sortColumn === 'status' ? (
-                            sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
-                          ) : (
-                            <ArrowUpDown size={14} className="text-gray-400" />
-                          )}
-                        </div>
-                      </TableHead>
-                      <TableHead 
-                        className="cursor-pointer hover:bg-gray-100 select-none"
-                        onClick={() => handleSort('group')}
-                      >
-                        <div className="flex items-center gap-1">
-                          Group
-                          {sortColumn === 'group' ? (
                             sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
                           ) : (
                             <ArrowUpDown size={14} className="text-gray-400" />
@@ -1625,11 +1581,12 @@ export const AdminDashboard: React.FC = () => {
                           </span>
                         </TableCell>
                         <TableCell>
-                          {golfer.group_position_label || (
+                          {golfer.hole_position_label && golfer.hole_position_label !== 'Unassigned' ? (
+                            golfer.hole_position_label
+                          ) : (
                             <span className="text-amber-600 font-medium">Unassigned</span>
                           )}
                         </TableCell>
-                        <TableCell>{golfer.hole_number || '-'}</TableCell>
                         <TableCell>
                           {golfer.checked_in ? (
                             <span className="text-green-600 font-medium">Yes</span>
@@ -1848,13 +1805,13 @@ export const AdminDashboard: React.FC = () => {
               <div className="space-y-3">
                 <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Tournament Details</h4>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className={`p-3 rounded-lg ${selectedGolfer.group_position_label ? 'bg-gray-50' : 'bg-amber-50 border border-amber-200'}`}>
+                  <div className={`p-3 rounded-lg ${selectedGolfer.hole_position_label && selectedGolfer.hole_position_label !== 'Unassigned' ? 'bg-gray-50' : 'bg-amber-50 border border-amber-200'}`}>
                     <div className="flex items-center gap-2 text-gray-500 mb-1">
                       <Users size={14} />
-                      <span className="text-xs">Group</span>
+                      <span className="text-xs">Hole</span>
                     </div>
-                    <p className={`font-semibold ${selectedGolfer.group_position_label ? 'text-gray-900' : 'text-amber-600'}`}>
-                      {selectedGolfer.group_position_label || 'Unassigned'}
+                    <p className={`font-semibold ${selectedGolfer.hole_position_label && selectedGolfer.hole_position_label !== 'Unassigned' ? 'text-gray-900' : 'text-amber-600'}`}>
+                      {selectedGolfer.hole_position_label || 'Unassigned'}
                     </p>
                   </div>
                   <div className="bg-gray-50 p-3 rounded-lg">

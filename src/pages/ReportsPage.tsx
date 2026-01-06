@@ -117,8 +117,7 @@ export const ReportsPage: React.FC = () => {
           'Status': g.registration_status,
           'Payment': g.payment_status,
           'Checked In': g.checked_in ? 'Yes' : 'No',
-          'Group': g.group_position_label || 'Unassigned',
-          'Hole': g.hole_number ? `Hole ${g.hole_number}` : '-',
+          'Hole': g.hole_position_label || 'Unassigned',
         }));
         const ws = XLSX.utils.json_to_sheet(data);
         XLSX.utils.book_append_sheet(wb, ws, 'Registrations');
@@ -128,8 +127,7 @@ export const ReportsPage: React.FC = () => {
         const data = confirmedGolfers.map(g => ({
           'Name': g.name,
           'Company': g.company || '-',
-          'Group': g.group_position_label || 'Unassigned',
-          'Hole': g.hole_number ? `Hole ${g.hole_number}` : '-',
+          'Hole': g.hole_position_label || 'Unassigned',
           'Paid': g.payment_status === 'paid' ? '✓' : '',
           'Checked In': g.checked_in ? '✓' : '',
         }));
@@ -161,8 +159,7 @@ export const ReportsPage: React.FC = () => {
         const data: any[] = [];
         groupsByNumber.forEach(group => {
           data.push({
-            'Group': `Group ${group.group_number}`,
-            'Hole': group.hole_number ? `Hole ${group.hole_number}` : 'Unassigned',
+            'Hole': group.hole_position_label || 'Unassigned',
             'Player 1': group.golfers?.[0]?.name || '',
             'Player 2': group.golfers?.[1]?.name || '',
             'Player 3': group.golfers?.[2]?.name || '',
@@ -234,9 +231,9 @@ export const ReportsPage: React.FC = () => {
               {golfer.payment_status === 'paid' ? 'paid' : 'unpaid'}
             </span>
           )}
-          {showGroup && golfer.group_position_label && (
+          {showGroup && golfer.hole_position_label && (
             <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
-              {golfer.group_position_label}
+              {golfer.hole_position_label}
             </span>
           )}
         </div>
@@ -417,7 +414,7 @@ export const ReportsPage: React.FC = () => {
                           <th className="px-3 py-2 text-left font-medium text-gray-500">Company</th>
                           <th className="px-3 py-2 text-left font-medium text-gray-500">Status</th>
                           <th className="px-3 py-2 text-left font-medium text-gray-500">Payment</th>
-                          <th className="px-3 py-2 text-left font-medium text-gray-500">Group</th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-500">Hole</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
@@ -447,7 +444,7 @@ export const ReportsPage: React.FC = () => {
                               </span>
                             </td>
                             <td className="px-3 py-2 text-gray-600">
-                              {g.group_position_label || 'Unassigned'}
+                              {g.hole_position_label || 'Unassigned'}
                             </td>
                           </tr>
                         ))}
@@ -474,7 +471,7 @@ export const ReportsPage: React.FC = () => {
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <p className="font-medium text-gray-900 truncate">{g.name}</p>
-                            <p className="text-xs text-gray-500">{g.group_position_label || 'No group'}</p>
+                            <p className="text-xs text-gray-500">Hole {g.hole_position_label || 'Unassigned'}</p>
                           </div>
                           <div className="flex items-center gap-2">
                             {g.payment_status === 'paid' && (
@@ -500,7 +497,6 @@ export const ReportsPage: React.FC = () => {
                         <tr>
                           <th className="px-3 py-2 text-left font-medium text-gray-500">Name</th>
                           <th className="px-3 py-2 text-left font-medium text-gray-500">Company</th>
-                          <th className="px-3 py-2 text-left font-medium text-gray-500">Group</th>
                           <th className="px-3 py-2 text-left font-medium text-gray-500">Hole</th>
                           <th className="px-3 py-2 text-center font-medium text-gray-500">Paid</th>
                           <th className="px-3 py-2 text-center font-medium text-gray-500">✓</th>
@@ -511,10 +507,7 @@ export const ReportsPage: React.FC = () => {
                           <tr key={g.id} className={`hover:bg-gray-50 ${g.checked_in ? 'bg-green-50' : ''}`}>
                             <td className="px-3 py-2 font-medium">{g.name}</td>
                             <td className="px-3 py-2 text-gray-600">{g.company || '-'}</td>
-                            <td className="px-3 py-2 text-gray-600">{g.group_position_label || '-'}</td>
-                            <td className="px-3 py-2 text-gray-600">
-                              {g.hole_number ? `Hole ${g.hole_number}` : '-'}
-                            </td>
+                            <td className="px-3 py-2 text-gray-600">{g.hole_position_label || 'Unassigned'}</td>
                             <td className="px-3 py-2 text-center">
                               {g.payment_status === 'paid' && (
                                 <CheckCircle size={16} className="text-green-600 mx-auto" />
@@ -671,13 +664,8 @@ export const ReportsPage: React.FC = () => {
                         className="border rounded-lg p-3 bg-white hover:shadow-md transition-shadow"
                       >
                         <div className="flex items-center justify-between mb-2">
-                          <span className="font-bold text-gray-900 text-sm">Group {group.group_number}</span>
-                          <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-                            group.hole_number 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-gray-100 text-gray-600'
-                          }`}>
-                            {group.hole_number ? `Hole ${group.hole_number}` : 'No Hole'}
+                          <span className={`font-bold text-sm ${group.hole_position_label && group.hole_position_label !== 'Unassigned' ? 'text-gray-900' : 'text-amber-600'}`}>
+                            Hole {group.hole_position_label || 'Unassigned'}
                           </span>
                         </div>
                         <div className="space-y-1.5">

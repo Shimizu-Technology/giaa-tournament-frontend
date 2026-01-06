@@ -46,6 +46,7 @@ export interface Golfer {
   id: number;
   tournament_id: number;
   name: string;
+  last_name: string | null;
   company: string | null;
   address: string | null;
   phone: string;
@@ -67,6 +68,7 @@ export interface Golfer {
   created_at: string;
   updated_at: string;
   group_position_label: string | null;
+  hole_position_label: string | null;
   checked_in: boolean;
   group?: Group | null;
   // Refund/cancel fields
@@ -99,6 +101,7 @@ export interface Group {
   updated_at: string;
   golfer_count: number;
   is_full: boolean;
+  hole_position_label: string | null;
   golfers?: Golfer[];
 }
 
