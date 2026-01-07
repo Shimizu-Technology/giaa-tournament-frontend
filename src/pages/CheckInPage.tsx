@@ -422,6 +422,7 @@ const PlayerDetailPanel: React.FC<{
 
 export const CheckInPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [lastNameFilter, setLastNameFilter] = useState<'all' | 'a-j' | 'k-z'>('all');
   const [selectedGolfer, setSelectedGolfer] = useState<Golfer | null>(null);
   const [golfers, setGolfers] = useState<Golfer[]>([]);
   const [stats, setStats] = useState<GolferStats | null>(null);
@@ -519,8 +520,29 @@ export const CheckInPage: React.FC = () => {
       );
     }
 
+    // Filter by last name range
+    if (lastNameFilter !== 'all') {
+      filtered = filtered.filter(g => {
+        const lastName = g.last_name?.toLowerCase() || g.name?.split(' ').pop()?.toLowerCase() || '';
+        const firstChar = lastName.charAt(0);
+        if (lastNameFilter === 'a-j') {
+          return firstChar >= 'a' && firstChar <= 'j';
+        } else if (lastNameFilter === 'k-z') {
+          return firstChar >= 'k' && firstChar <= 'z';
+        }
+        return true;
+      });
+    }
+
+    // Sort by last name for easier check-in
+    filtered.sort((a, b) => {
+      const aLastName = a.last_name?.toLowerCase() || a.name?.split(' ').pop()?.toLowerCase() || '';
+      const bLastName = b.last_name?.toLowerCase() || b.name?.split(' ').pop()?.toLowerCase() || '';
+      return aLastName.localeCompare(bLastName);
+    });
+
     return filtered;
-  }, [golfers, searchTerm, activeQueue]);
+  }, [golfers, searchTerm, activeQueue, lastNameFilter]);
 
   // Count waitlist golfers
   const waitlistCount = useMemo(() => 
@@ -946,24 +968,36 @@ export const CheckInPage: React.FC = () => {
                 <p className="text-xs lg:text-sm text-gray-500 mt-1">{getQueueDescription()}</p>
               </div>
 
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 lg:top-3 text-gray-400" size={18} />
-                <input
-                  type="text"
-                  placeholder="Search name, email, phone..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-9 py-2 lg:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-sm lg:text-base"
-                />
-                {searchTerm && (
-                  <button
-                    onClick={() => setSearchTerm('')}
-                    className="absolute right-3 top-2.5 lg:top-3 text-gray-400 hover:text-gray-600"
-                  >
-                    <X size={18} />
-                  </button>
-                )}
+              {/* Search and Last Name Filter */}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-2.5 lg:top-3 text-gray-400" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search name, email, phone..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-9 py-2 lg:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-sm lg:text-base"
+                  />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="absolute right-3 top-2.5 lg:top-3 text-gray-400 hover:text-gray-600"
+                    >
+                      <X size={18} />
+                    </button>
+                  )}
+                </div>
+                {/* Last Name Range Filter */}
+                <select
+                  value={lastNameFilter}
+                  onChange={(e) => setLastNameFilter(e.target.value as 'all' | 'a-j' | 'k-z')}
+                  className="px-3 py-2 lg:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-sm lg:text-base bg-white font-medium"
+                >
+                  <option value="all">All Names</option>
+                  <option value="a-j">Last Name A-J</option>
+                  <option value="k-z">Last Name K-Z</option>
+                </select>
               </div>
 
               {/* Player List */}
