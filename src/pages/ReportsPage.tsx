@@ -13,7 +13,10 @@ import {
   Search,
   List,
   Grid3X3,
-  ClipboardList
+  ClipboardList,
+  ArrowUp,
+  ArrowDown,
+  UserCheck
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -28,6 +31,7 @@ export const ReportsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ReportTab>('registrations');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'confirmed' | 'cancelled' | 'waitlist'>('all');
+  const [groupsSortDirection, setGroupsSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const fetchData = async () => {
     try {
@@ -99,10 +103,32 @@ export const ReportsPage: React.FC = () => {
     [confirmedGolfers]
   );
 
-  // Groups sorted by group number (creation order)
-  const groupsByNumber = useMemo(() => {
-    return [...groups].sort((a, b) => a.group_number - b.group_number);
-  }, [groups]);
+  // Groups sorted by hole position label (e.g., "1A", "1B", "2A", etc.)
+  const groupsByHole = useMemo(() => {
+    const sorted = [...groups].sort((a, b) => {
+      // Parse hole_position_label to sort numerically then alphabetically
+      // e.g., "1A" < "1B" < "2A" < "10A"
+      const labelA = a.hole_position_label || 'ZZZ'; // Unassigned at end
+      const labelB = b.hole_position_label || 'ZZZ';
+      
+      // Extract number and letter parts
+      const matchA = labelA.match(/^(\d+)([A-Z]?)$/i);
+      const matchB = labelB.match(/^(\d+)([A-Z]?)$/i);
+      
+      if (matchA && matchB) {
+        const numA = parseInt(matchA[1]);
+        const numB = parseInt(matchB[1]);
+        if (numA !== numB) return numA - numB;
+        // Same hole number, sort by letter
+        return (matchA[2] || '').localeCompare(matchB[2] || '');
+      }
+      
+      // Fallback to string comparison
+      return labelA.localeCompare(labelB);
+    });
+    
+    return groupsSortDirection === 'asc' ? sorted : sorted.reverse();
+  }, [groups, groupsSortDirection]);
 
   const handleExport = () => {
     const wb = XLSX.utils.book_new();
@@ -157,7 +183,7 @@ export const ReportsPage: React.FC = () => {
       }
       case 'groups': {
         const data: any[] = [];
-        groupsByNumber.forEach(group => {
+        groupsByHole.forEach(group => {
           data.push({
             'Hole': group.hole_position_label || 'Unassigned',
             'Player 1': group.golfers?.[0]?.name || '',
@@ -654,53 +680,93 @@ export const ReportsPage: React.FC = () => {
               {/* Groups Tab */}
               {activeTab === 'groups' && (
                 <>
-                  <div className="p-2 lg:p-4 border-b bg-gray-50">
+                  <div className="p-2 lg:p-4 border-b bg-gray-50 flex items-center justify-between">
                     <span className="text-xs lg:text-sm text-gray-600">{groups.length} groups</span>
+                    <button
+                      onClick={() => setGroupsSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+                      className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      title={groupsSortDirection === 'asc' ? 'Sorted: Hole 1 → 18' : 'Sorted: Hole 18 → 1'}
+                    >
+                      {groupsSortDirection === 'asc' ? (
+                        <>
+                          <ArrowUp size={14} />
+                          <span className="hidden sm:inline">1 → 18</span>
+                        </>
+                      ) : (
+                        <>
+                          <ArrowDown size={14} />
+                          <span className="hidden sm:inline">18 → 1</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                   <div className="p-3 lg:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[60vh] lg:max-h-none overflow-y-auto">
-                    {groupsByNumber.map(group => (
-                      <div 
-                        key={group.id} 
-                        className="border rounded-lg p-3 bg-white hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className={`font-bold text-sm ${group.hole_position_label && group.hole_position_label !== 'Unassigned' ? 'text-gray-900' : 'text-amber-600'}`}>
-                            Hole {group.hole_position_label || 'Unassigned'}
-                          </span>
+                    {groupsByHole.map(group => {
+                      const checkedInCount = group.golfers?.filter(g => g.checked_in).length || 0;
+                      const totalCount = group.golfers?.length || 0;
+                      const allCheckedIn = totalCount > 0 && checkedInCount === totalCount;
+                      
+                      return (
+                        <div 
+                          key={group.id} 
+                          className={`border rounded-lg p-3 bg-white hover:shadow-md transition-shadow ${allCheckedIn ? 'border-green-300 bg-green-50/30' : ''}`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className={`font-bold text-sm ${group.hole_position_label && group.hole_position_label !== 'Unassigned' ? 'text-gray-900' : 'text-amber-600'}`}>
+                              Hole {group.hole_position_label || 'Unassigned'}
+                            </span>
+                            {totalCount > 0 && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                                allCheckedIn 
+                                  ? 'bg-green-100 text-green-700' 
+                                  : checkedInCount > 0 
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                {checkedInCount}/{totalCount} ✓
+                              </span>
+                            )}
+                          </div>
+                          <div className="space-y-1.5">
+                            {group.golfers && group.golfers.length > 0 ? (
+                              group.golfers.map((golfer, idx) => (
+                                <div 
+                                  key={golfer.id} 
+                                  className={`flex items-center gap-2 text-sm ${golfer.checked_in ? 'text-green-700' : 'text-gray-700'}`}
+                                >
+                                  {golfer.checked_in ? (
+                                    <span className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
+                                      <UserCheck size={10} className="text-white" />
+                                    </span>
+                                  ) : (
+                                    <span className="w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-medium text-blue-600">
+                                      {String.fromCharCode(65 + idx)}
+                                    </span>
+                                  )}
+                                  <span className={`truncate ${golfer.checked_in ? 'font-medium' : ''}`}>{golfer.name}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-xs text-gray-400 italic">Empty</p>
+                            )}
+                            {/* Empty slots */}
+                            {group.golfers && group.golfers.length < 4 && group.golfers.length > 0 && (
+                              Array.from({ length: 4 - group.golfers.length }).map((_, idx) => (
+                                <div 
+                                  key={`empty-${idx}`} 
+                                  className="flex items-center gap-2 text-sm text-gray-300"
+                                >
+                                  <span className="w-4 h-4 rounded-full bg-gray-50 flex items-center justify-center text-[10px] font-medium">
+                                    {String.fromCharCode(65 + group.golfers!.length + idx)}
+                                  </span>
+                                  <span className="italic text-xs">Empty</span>
+                                </div>
+                              ))
+                            )}
+                          </div>
                         </div>
-                        <div className="space-y-1.5">
-                          {group.golfers && group.golfers.length > 0 ? (
-                            group.golfers.map((golfer, idx) => (
-                              <div 
-                                key={golfer.id} 
-                                className="flex items-center gap-2 text-sm"
-                              >
-                                <span className="w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-medium text-blue-600">
-                                  {String.fromCharCode(65 + idx)}
-                                </span>
-                                <span className="truncate text-gray-700">{golfer.name}</span>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-xs text-gray-400 italic">Empty</p>
-                          )}
-                          {/* Empty slots */}
-                          {group.golfers && group.golfers.length < 4 && group.golfers.length > 0 && (
-                            Array.from({ length: 4 - group.golfers.length }).map((_, idx) => (
-                              <div 
-                                key={`empty-${idx}`} 
-                                className="flex items-center gap-2 text-sm text-gray-300"
-                              >
-                                <span className="w-4 h-4 rounded-full bg-gray-50 flex items-center justify-center text-[10px] font-medium">
-                                  {String.fromCharCode(65 + group.golfers!.length + idx)}
-                                </span>
-                                <span className="italic text-xs">Empty</span>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </>
               )}

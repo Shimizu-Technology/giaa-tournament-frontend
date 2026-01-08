@@ -430,7 +430,7 @@ export const CheckInPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [activeQueue, setActiveQueue] = useState<CheckInQueue>('paid');
+  const [activeQueue, setActiveQueue] = useState<CheckInQueue>('checked-in');
   const [golferActivityLogs, setGolferActivityLogs] = useState<ActivityLog[]>([]);
   const [loadingActivityLogs, setLoadingActivityLogs] = useState(false);
   const [isPromoting, setIsPromoting] = useState(false);
@@ -823,7 +823,27 @@ export const CheckInPage: React.FC = () => {
 
         {/* Queue Selection - 2x2 grid on mobile */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-4">
-          {/* Paid Queue - Green */}
+          {/* Checked In - Blue (First for quick visibility of who's arrived) */}
+          <button
+            onClick={() => setActiveQueue('checked-in')}
+            className={`p-3 lg:p-4 rounded-lg border-2 transition-all touch-manipulation ${
+              activeQueue === 'checked-in' 
+                ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50' 
+                : 'border-gray-200 hover:border-blue-200 bg-white'
+            }`}
+          >
+            <div className="flex items-center gap-2 lg:gap-3">
+              <div className={`p-2 lg:p-3 rounded-full ${activeQueue === 'checked-in' ? 'bg-blue-500' : 'bg-blue-100'}`}>
+                <UserCheck className={activeQueue === 'checked-in' ? 'text-white' : 'text-blue-600'} size={18} />
+              </div>
+              <div className="text-left">
+                <p className="text-[10px] lg:text-xs font-medium text-blue-700 uppercase">Checked In</p>
+                <p className="text-xl lg:text-2xl font-bold text-blue-600">{counts.checkedIn}</p>
+              </div>
+            </div>
+          </button>
+
+          {/* Paid Queue - Green (Ready for quick check-in) */}
           <button
             onClick={() => setActiveQueue('paid')}
             className={`p-3 lg:p-4 rounded-lg border-2 transition-all touch-manipulation ${
@@ -843,7 +863,7 @@ export const CheckInPage: React.FC = () => {
             </div>
           </button>
 
-          {/* Unpaid Queue - Amber */}
+          {/* Unpaid Queue - Amber (Need to collect payment) */}
           <button
             onClick={() => setActiveQueue('unpaid')}
             className={`p-3 lg:p-4 rounded-lg border-2 transition-all touch-manipulation ${
@@ -859,26 +879,6 @@ export const CheckInPage: React.FC = () => {
               <div className="text-left">
                 <p className="text-[10px] lg:text-xs font-medium text-amber-700 uppercase">Not Paid</p>
                 <p className="text-xl lg:text-2xl font-bold text-amber-600">{counts.unpaidPending}</p>
-              </div>
-            </div>
-          </button>
-
-          {/* Checked In - Blue */}
-          <button
-            onClick={() => setActiveQueue('checked-in')}
-            className={`p-3 lg:p-4 rounded-lg border-2 transition-all touch-manipulation ${
-              activeQueue === 'checked-in' 
-                ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50' 
-                : 'border-gray-200 hover:border-blue-200 bg-white'
-            }`}
-          >
-            <div className="flex items-center gap-2 lg:gap-3">
-              <div className={`p-2 lg:p-3 rounded-full ${activeQueue === 'checked-in' ? 'bg-blue-500' : 'bg-blue-100'}`}>
-                <UserCheck className={activeQueue === 'checked-in' ? 'text-white' : 'text-blue-600'} size={18} />
-              </div>
-              <div className="text-left">
-                <p className="text-[10px] lg:text-xs font-medium text-blue-700 uppercase">Checked In</p>
-                <p className="text-xl lg:text-2xl font-bold text-blue-600">{counts.checkedIn}</p>
               </div>
             </div>
           </button>
