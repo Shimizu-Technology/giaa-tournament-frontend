@@ -32,6 +32,9 @@ export const ReportsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'confirmed' | 'cancelled' | 'waitlist'>('all');
   const [groupsSortDirection, setGroupsSortDirection] = useState<'asc' | 'desc'>('asc');
+  // Payment report filters
+  const [paymentTimingFilter, setPaymentTimingFilter] = useState<'all' | 'pre_paid' | 'day_of'>('all');
+  const [paymentChannelFilter, setPaymentChannelFilter] = useState<'all' | 'stripe_online' | 'credit_venue' | 'cash' | 'check'>('all');
 
   const fetchData = async () => {
     try {
@@ -88,15 +91,56 @@ export const ReportsPage: React.FC = () => {
     [filteredGolfers]
   );
 
-  const paidGolfers = useMemo(() => 
+  // All paid golfers (unfiltered)
+  const allPaidGolfers = useMemo(() => 
     confirmedGolfers.filter(g => g.payment_status === 'paid'), 
     [confirmedGolfers]
   );
+
+  // Filtered paid golfers based on timing and channel filters
+  const paidGolfers = useMemo(() => {
+    let filtered = allPaidGolfers;
+    
+    // Apply timing filter
+    if (paymentTimingFilter !== 'all') {
+      filtered = filtered.filter(g => g.payment_timing === paymentTimingFilter);
+    }
+    
+    // Apply channel filter
+    if (paymentChannelFilter !== 'all') {
+      filtered = filtered.filter(g => g.payment_channel === paymentChannelFilter);
+    }
+    
+    return filtered;
+  }, [allPaidGolfers, paymentTimingFilter, paymentChannelFilter]);
   
   const unpaidGolfers = useMemo(() => 
     confirmedGolfers.filter(g => g.payment_status !== 'paid'), 
     [confirmedGolfers]
   );
+  
+  // Calculate payment statistics
+  const paymentStats = useMemo(() => {
+    const prePaid = allPaidGolfers.filter(g => g.payment_timing === 'pre_paid');
+    const dayOf = allPaidGolfers.filter(g => g.payment_timing === 'day_of');
+    const stripeOnline = allPaidGolfers.filter(g => g.payment_channel === 'stripe_online');
+    const creditVenue = allPaidGolfers.filter(g => g.payment_channel === 'credit_venue');
+    const cash = allPaidGolfers.filter(g => g.payment_channel === 'cash');
+    const check = allPaidGolfers.filter(g => g.payment_channel === 'check');
+    
+    const sumAmount = (golfers: typeof allPaidGolfers) => 
+      golfers.reduce((sum, g) => sum + (g.payment_amount_cents || 0), 0);
+    
+    return {
+      total: { count: allPaidGolfers.length, amount: sumAmount(allPaidGolfers) },
+      prePaid: { count: prePaid.length, amount: sumAmount(prePaid) },
+      dayOf: { count: dayOf.length, amount: sumAmount(dayOf) },
+      stripeOnline: { count: stripeOnline.length, amount: sumAmount(stripeOnline) },
+      creditVenue: { count: creditVenue.length, amount: sumAmount(creditVenue) },
+      cash: { count: cash.length, amount: sumAmount(cash) },
+      check: { count: check.length, amount: sumAmount(check) },
+    };
+  }, [allPaidGolfers]);
   
   const checkedInGolfers = useMemo(() => 
     confirmedGolfers.filter(g => g.checked_in), 
@@ -162,10 +206,23 @@ export const ReportsPage: React.FC = () => {
         break;
       }
       case 'payments': {
+        const formatPaymentChannel = (channel: string | null) => {
+          switch (channel) {
+            case 'stripe_online': return 'Stripe (Online)';
+            case 'credit_venue': return 'Credit Card (Venue)';
+            case 'cash': return 'Cash';
+            case 'check': return 'Check';
+            default: return '-';
+          }
+        };
+        
         const paidData = paidGolfers.map(g => ({
           'Name': g.name,
           'Company': g.company || '-',
-          'Payment Method': g.payment_method || g.payment_type || '-',
+          'Timing': g.payment_timing === 'day_of' ? 'Day-Of' : 'Pre-Paid',
+          'Payment Method': formatPaymentChannel(g.payment_channel),
+          'Paid At': g.paid_at ? new Date(g.paid_at).toLocaleString() : '-',
+          'Amount': g.payment_amount_cents ? `$${(g.payment_amount_cents / 100).toFixed(2)}` : '-',
           'Receipt #': g.receipt_number || '-',
           'Notes': g.payment_notes || '-',
         }));
@@ -555,13 +612,64 @@ export const ReportsPage: React.FC = () => {
               {/* Payments Tab */}
               {activeTab === 'payments' && (
                 <>
-                  <div className="p-2 lg:p-4 border-b bg-gray-50 flex justify-between items-center">
-                    <span className="text-xs lg:text-sm font-medium text-green-700">
-                      {paidGolfers.length} Paid
-                    </span>
-                    <span className="text-xs lg:text-sm font-medium text-red-700">
-                      {unpaidGolfers.length} Unpaid
-                    </span>
+                  {/* Payment Stats Summary */}
+                  <div className="p-3 lg:p-4 border-b bg-gray-50">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-4 mb-3">
+                      <div className="bg-white rounded-lg p-2 lg:p-3 border">
+                        <p className="text-[10px] lg:text-xs text-gray-500 uppercase">Total Paid</p>
+                        <p className="text-lg lg:text-xl font-bold text-green-600">{paymentStats.total.count}</p>
+                        <p className="text-xs text-gray-500">${(paymentStats.total.amount / 100).toLocaleString()}</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-2 lg:p-3 border">
+                        <p className="text-[10px] lg:text-xs text-gray-500 uppercase">Pre-Paid</p>
+                        <p className="text-lg lg:text-xl font-bold text-blue-600">{paymentStats.prePaid.count}</p>
+                        <p className="text-xs text-gray-500">${(paymentStats.prePaid.amount / 100).toLocaleString()}</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-2 lg:p-3 border">
+                        <p className="text-[10px] lg:text-xs text-gray-500 uppercase">Day-Of</p>
+                        <p className="text-lg lg:text-xl font-bold text-amber-600">{paymentStats.dayOf.count}</p>
+                        <p className="text-xs text-gray-500">${(paymentStats.dayOf.amount / 100).toLocaleString()}</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-2 lg:p-3 border">
+                        <p className="text-[10px] lg:text-xs text-gray-500 uppercase">Unpaid</p>
+                        <p className="text-lg lg:text-xl font-bold text-red-600">{unpaidGolfers.length}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Filters */}
+                    <div className="flex flex-wrap gap-2">
+                      <select
+                        value={paymentTimingFilter}
+                        onChange={(e) => setPaymentTimingFilter(e.target.value as typeof paymentTimingFilter)}
+                        className="text-xs lg:text-sm border border-gray-300 rounded-lg px-2 py-1.5 bg-white"
+                      >
+                        <option value="all">All Timing</option>
+                        <option value="pre_paid">Pre-Paid ({paymentStats.prePaid.count})</option>
+                        <option value="day_of">Day-Of ({paymentStats.dayOf.count})</option>
+                      </select>
+                      <select
+                        value={paymentChannelFilter}
+                        onChange={(e) => setPaymentChannelFilter(e.target.value as typeof paymentChannelFilter)}
+                        className="text-xs lg:text-sm border border-gray-300 rounded-lg px-2 py-1.5 bg-white"
+                      >
+                        <option value="all">All Methods</option>
+                        <option value="stripe_online">Stripe Online ({paymentStats.stripeOnline.count})</option>
+                        <option value="credit_venue">Credit at Venue ({paymentStats.creditVenue.count})</option>
+                        <option value="cash">Cash ({paymentStats.cash.count})</option>
+                        <option value="check">Check ({paymentStats.check.count})</option>
+                      </select>
+                      {(paymentTimingFilter !== 'all' || paymentChannelFilter !== 'all') && (
+                        <button
+                          onClick={() => {
+                            setPaymentTimingFilter('all');
+                            setPaymentChannelFilter('all');
+                          }}
+                          className="text-xs text-blue-600 hover:text-blue-800 underline"
+                        >
+                          Clear filters
+                        </button>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="max-h-[60vh] lg:max-h-none overflow-y-auto">
@@ -569,27 +677,54 @@ export const ReportsPage: React.FC = () => {
                     <div className="border-b">
                       <div className="p-2 lg:p-3 bg-green-50 font-medium text-green-800 flex items-center gap-2 text-sm">
                         <CheckCircle size={14} />
-                        Paid ({paidGolfers.length})
+                        Paid ({paidGolfers.length}{(paymentTimingFilter !== 'all' || paymentChannelFilter !== 'all') ? ` of ${allPaidGolfers.length}` : ''})
                       </div>
                       
                       {/* Mobile */}
                       <div className="lg:hidden">
                         {paidGolfers.map(g => (
                           <div key={g.id} className="p-3 border-b border-gray-100 last:border-b-0">
-                            <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0 flex-1">
                                 <p className="font-medium text-gray-900 truncate">{g.name}</p>
-                                <p className="text-xs text-gray-500 capitalize">
-                                  {g.payment_method || g.payment_type || 'Method unknown'}
-                                  {g.receipt_number && ` • #${g.receipt_number}`}
-                                </p>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                    g.payment_timing === 'day_of' 
+                                      ? 'bg-amber-100 text-amber-700' 
+                                      : 'bg-blue-100 text-blue-700'
+                                  }`}>
+                                    {g.payment_timing === 'day_of' ? 'Day-Of' : 'Pre-Paid'}
+                                  </span>
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 capitalize">
+                                    {g.payment_channel === 'stripe_online' ? 'Stripe' : 
+                                     g.payment_channel === 'credit_venue' ? 'Credit' : 
+                                     g.payment_channel || 'Unknown'}
+                                  </span>
+                                </div>
+                                {g.paid_at && (
+                                  <p className="text-[10px] text-gray-400 mt-1">
+                                    {new Date(g.paid_at).toLocaleDateString('en-US', { 
+                                      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+                                    })}
+                                  </p>
+                                )}
                               </div>
-                              <CheckCircle size={16} className="text-green-600 flex-shrink-0" />
+                              <div className="text-right flex-shrink-0">
+                                {g.payment_amount_cents && (
+                                  <p className="text-sm font-medium text-green-600">
+                                    ${(g.payment_amount_cents / 100).toFixed(0)}
+                                  </p>
+                                )}
+                              </div>
                             </div>
                           </div>
                         ))}
                         {paidGolfers.length === 0 && (
-                          <div className="p-4 text-center text-gray-500 text-sm">No paid golfers</div>
+                          <div className="p-4 text-center text-gray-500 text-sm">
+                            {(paymentTimingFilter !== 'all' || paymentChannelFilter !== 'all') 
+                              ? 'No golfers match the selected filters' 
+                              : 'No paid golfers'}
+                          </div>
                         )}
                       </div>
 
@@ -600,8 +735,10 @@ export const ReportsPage: React.FC = () => {
                             <tr>
                               <th className="px-3 py-2 text-left font-medium text-gray-500">Name</th>
                               <th className="px-3 py-2 text-left font-medium text-gray-500">Company</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-500">Timing</th>
                               <th className="px-3 py-2 text-left font-medium text-gray-500">Method</th>
-                              <th className="px-3 py-2 text-left font-medium text-gray-500">Receipt #</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-500">Paid At</th>
+                              <th className="px-3 py-2 text-right font-medium text-gray-500">Amount</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y">
@@ -609,11 +746,29 @@ export const ReportsPage: React.FC = () => {
                               <tr key={g.id} className="hover:bg-gray-50">
                                 <td className="px-3 py-2 font-medium">{g.name}</td>
                                 <td className="px-3 py-2 text-gray-600">{g.company || '-'}</td>
-                                <td className="px-3 py-2 text-gray-600 capitalize">
-                                  {g.payment_method || g.payment_type || '-'}
+                                <td className="px-3 py-2">
+                                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                    g.payment_timing === 'day_of' 
+                                      ? 'bg-amber-100 text-amber-700' 
+                                      : 'bg-blue-100 text-blue-700'
+                                  }`}>
+                                    {g.payment_timing === 'day_of' ? 'Day-Of' : 'Pre-Paid'}
+                                  </span>
                                 </td>
                                 <td className="px-3 py-2 text-gray-600">
-                                  {g.receipt_number || '-'}
+                                  {g.payment_channel === 'stripe_online' ? 'Stripe (Online)' : 
+                                   g.payment_channel === 'credit_venue' ? 'Credit Card (Venue)' : 
+                                   g.payment_channel === 'cash' ? 'Cash' :
+                                   g.payment_channel === 'check' ? 'Check' : '-'}
+                                </td>
+                                <td className="px-3 py-2 text-gray-600 text-xs">
+                                  {g.paid_at ? new Date(g.paid_at).toLocaleDateString('en-US', { 
+                                    month: 'short', day: 'numeric', year: 'numeric',
+                                    hour: 'numeric', minute: '2-digit'
+                                  }) : '-'}
+                                </td>
+                                <td className="px-3 py-2 text-right font-medium text-green-600">
+                                  {g.payment_amount_cents ? `$${(g.payment_amount_cents / 100).toFixed(0)}` : '-'}
                                 </td>
                               </tr>
                             ))}

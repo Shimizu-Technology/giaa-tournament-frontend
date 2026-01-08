@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { Card, Button, Input, Select } from '../components/ui';
-import { Search, CheckCircle, DollarSign, User, RefreshCw, X, UserCheck, CreditCard, Users, Clock, ArrowUpCircle, Send, Copy, Loader2 } from 'lucide-react';
+import { Search, CheckCircle, DollarSign, User, RefreshCw, X, UserCheck, CreditCard, Users, Clock, ArrowUpCircle, Send, Copy, Loader2, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api, Golfer, GolferStats, ActivityLog } from '../services/api';
 
@@ -38,7 +38,15 @@ const PlayerDetailPanel: React.FC<{
   // Employee toggle props
   isTogglingEmployee?: boolean;
   onToggleEmployee?: () => void;
-}> = ({ golfer, paymentInfo, setPaymentInfo, isProcessing, onCheckIn, onRecordPayment, onClose, showCloseButton = true, entryFee = 125, activityLogs = [], loadingActivityLogs = false, isPromoting = false, onPromote, onPromotePayCheckIn, capacityRemaining = 0, isSendingPaymentLink = false, onSendPaymentLink, onCopyPaymentLink, isTogglingEmployee = false, onToggleEmployee }) => {
+  // Payment notes editing props
+  isEditingPaymentNotes?: boolean;
+  editPaymentNotesValue?: string;
+  isSavingPaymentNotes?: boolean;
+  onStartEditPaymentNotes?: () => void;
+  onCancelEditPaymentNotes?: () => void;
+  onSavePaymentNotes?: () => void;
+  onPaymentNotesChange?: (value: string) => void;
+}> = ({ golfer, paymentInfo, setPaymentInfo, isProcessing, onCheckIn, onRecordPayment, onClose, showCloseButton = true, entryFee = 125, activityLogs = [], loadingActivityLogs = false, isPromoting = false, onPromote, onPromotePayCheckIn, capacityRemaining = 0, isSendingPaymentLink = false, onSendPaymentLink, onCopyPaymentLink, isTogglingEmployee = false, onToggleEmployee, isEditingPaymentNotes = false, editPaymentNotesValue = '', isSavingPaymentNotes = false, onStartEditPaymentNotes, onCancelEditPaymentNotes, onSavePaymentNotes, onPaymentNotesChange }) => {
   return (
     <div className="space-y-4 lg:space-y-6">
       <div className="flex items-center gap-3 lg:gap-4">
@@ -206,28 +214,67 @@ const PlayerDetailPanel: React.FC<{
             </p>
             
             {/* Payment Details */}
-            {(golfer.payment_method || golfer.receipt_number || golfer.payment_notes) && (
-              <div className="mt-3 pt-3 border-t border-green-200 space-y-1.5 text-sm">
-                {golfer.payment_method && (
-                  <div className="flex justify-between">
-                    <span className="text-green-600">Method:</span>
-                    <span className="text-green-800 font-medium capitalize">{golfer.payment_method}</span>
+            <div className="mt-3 pt-3 border-t border-green-200 space-y-1.5 text-sm">
+              {golfer.payment_method && (
+                <div className="flex justify-between">
+                  <span className="text-green-600">Method:</span>
+                  <span className="text-green-800 font-medium capitalize">{golfer.payment_method}</span>
+                </div>
+              )}
+              {golfer.receipt_number && (
+                <div className="flex justify-between">
+                  <span className="text-green-600">Receipt #:</span>
+                  <span className="text-green-800 font-medium">{golfer.receipt_number}</span>
+                </div>
+              )}
+              {/* Payment Notes - Editable */}
+              <div className="mt-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-green-600">Notes:</span>
+                  {!isEditingPaymentNotes && onStartEditPaymentNotes && (
+                    <button
+                      onClick={onStartEditPaymentNotes}
+                      className="text-green-600 hover:text-green-800 p-1 rounded hover:bg-green-100"
+                      title="Edit payment notes"
+                    >
+                      <Pencil size={12} />
+                    </button>
+                  )}
+                </div>
+                
+                {isEditingPaymentNotes ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={editPaymentNotesValue}
+                      onChange={(e) => onPaymentNotesChange?.(e.target.value)}
+                      className="w-full px-2 py-1.5 border border-green-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+                      rows={3}
+                      placeholder="Enter payment notes..."
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={onSavePaymentNotes}
+                        disabled={isSavingPaymentNotes}
+                        className="flex-1 py-1 px-2 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 disabled:opacity-50"
+                      >
+                        {isSavingPaymentNotes ? 'Saving...' : 'Save'}
+                      </button>
+                      <button
+                        onClick={onCancelEditPaymentNotes}
+                        disabled={isSavingPaymentNotes}
+                        className="flex-1 py-1 px-2 border border-gray-300 rounded text-xs font-medium hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
-                )}
-                {golfer.receipt_number && (
-                  <div className="flex justify-between">
-                    <span className="text-green-600">Receipt #:</span>
-                    <span className="text-green-800 font-medium">{golfer.receipt_number}</span>
-                  </div>
-                )}
-                {golfer.payment_notes && (
-                  <div className="mt-2">
-                    <span className="text-green-600 block mb-1">Notes:</span>
-                    <p className="text-green-800 bg-green-100/50 p-2 rounded text-xs">{golfer.payment_notes}</p>
-                  </div>
+                ) : (
+                  <p className="text-green-800 bg-green-100/50 p-2 rounded text-xs whitespace-pre-wrap">
+                    {golfer.payment_notes || <span className="italic text-green-500">No notes</span>}
+                  </p>
                 )}
               </div>
-            )}
+            </div>
           </div>
 
           <Button
@@ -436,6 +483,10 @@ export const CheckInPage: React.FC = () => {
   const [isPromoting, setIsPromoting] = useState(false);
   const [isSendingPaymentLink, setIsSendingPaymentLink] = useState(false);
   const [isTogglingEmployee, setIsTogglingEmployee] = useState(false);
+  // Payment notes editing state
+  const [isEditingPaymentNotes, setIsEditingPaymentNotes] = useState(false);
+  const [editPaymentNotesValue, setEditPaymentNotesValue] = useState('');
+  const [isSavingPaymentNotes, setIsSavingPaymentNotes] = useState(false);
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo>({
     method: 'cash',
     receiptNumber: '',
@@ -618,6 +669,44 @@ export const CheckInPage: React.FC = () => {
       toast.error('Failed to update employee status');
     } finally {
       setIsTogglingEmployee(false);
+    }
+  };
+
+  // Start editing payment notes
+  const handleStartEditPaymentNotes = () => {
+    if (!selectedGolfer) return;
+    setEditPaymentNotesValue(selectedGolfer.payment_notes || '');
+    setIsEditingPaymentNotes(true);
+  };
+
+  // Cancel editing payment notes
+  const handleCancelEditPaymentNotes = () => {
+    setIsEditingPaymentNotes(false);
+    setEditPaymentNotesValue('');
+  };
+
+  // Save payment notes
+  const handleSavePaymentNotes = async () => {
+    if (!selectedGolfer) return;
+    
+    setIsSavingPaymentNotes(true);
+    try {
+      const updatedGolfer = await api.updateGolfer(selectedGolfer.id, {
+        payment_notes: editPaymentNotesValue.trim() || undefined,
+      });
+      toast.success('Payment notes updated');
+      setSelectedGolfer(updatedGolfer);
+      setIsEditingPaymentNotes(false);
+      setEditPaymentNotesValue('');
+      await fetchData();
+      // Refresh activity logs to show the payment notes update
+      const response = await api.getGolferActivityHistory(updatedGolfer.id);
+      setGolferActivityLogs(response.activity_logs);
+    } catch (err) {
+      console.error('Error updating payment notes:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to update payment notes');
+    } finally {
+      setIsSavingPaymentNotes(false);
     }
   };
 
@@ -1095,6 +1184,13 @@ export const CheckInPage: React.FC = () => {
                 onCopyPaymentLink={handleCopyPaymentLink}
                 isTogglingEmployee={isTogglingEmployee}
                 onToggleEmployee={handleToggleEmployee}
+                isEditingPaymentNotes={isEditingPaymentNotes}
+                editPaymentNotesValue={editPaymentNotesValue}
+                isSavingPaymentNotes={isSavingPaymentNotes}
+                onStartEditPaymentNotes={handleStartEditPaymentNotes}
+                onCancelEditPaymentNotes={handleCancelEditPaymentNotes}
+                onSavePaymentNotes={handleSavePaymentNotes}
+                onPaymentNotesChange={setEditPaymentNotesValue}
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-full py-16 text-center">
@@ -1171,6 +1267,13 @@ export const CheckInPage: React.FC = () => {
                 onCopyPaymentLink={handleCopyPaymentLink}
                 isTogglingEmployee={isTogglingEmployee}
                 onToggleEmployee={handleToggleEmployee}
+                isEditingPaymentNotes={isEditingPaymentNotes}
+                editPaymentNotesValue={editPaymentNotesValue}
+                isSavingPaymentNotes={isSavingPaymentNotes}
+                onStartEditPaymentNotes={handleStartEditPaymentNotes}
+                onCancelEditPaymentNotes={handleCancelEditPaymentNotes}
+                onSavePaymentNotes={handleSavePaymentNotes}
+                onPaymentNotesChange={setEditPaymentNotesValue}
               />
             </div>
           </div>

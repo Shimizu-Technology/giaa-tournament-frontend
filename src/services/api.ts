@@ -85,6 +85,10 @@ export interface Golfer {
   cancelled: boolean;
   refunded: boolean;
   formatted_payment_timestamp: string | null;
+  // Payment timing fields
+  paid_at: string | null;
+  payment_timing: 'day_of' | 'pre_paid' | null;
+  payment_channel: 'stripe_online' | 'credit_venue' | 'cash' | 'check' | null;
   // Employee fields
   is_employee: boolean;
   employee_number: string | null;

@@ -75,6 +75,11 @@ export const AdminDashboard: React.FC = () => {
     address: '',
   });
 
+  // Edit payment notes state
+  const [isEditingPaymentNotes, setIsEditingPaymentNotes] = useState(false);
+  const [editPaymentNotesValue, setEditPaymentNotesValue] = useState('');
+  const [isSavingPaymentNotes, setIsSavingPaymentNotes] = useState(false);
+
   // Bulk selection state
   const [selectedGolferIds, setSelectedGolferIds] = useState<Set<number>>(new Set());
   const [showBulkEmployeeConfirm, setShowBulkEmployeeConfirm] = useState<'add' | 'remove' | null>(null);
@@ -683,6 +688,44 @@ export const AdminDashboard: React.FC = () => {
   const handleCancelEdit = () => {
     setIsEditingGolfer(false);
     setEditGolferData({ name: '', email: '', phone: '', company: '', address: '' });
+  };
+
+  // Start editing payment notes
+  const handleStartEditPaymentNotes = () => {
+    if (!selectedGolfer) return;
+    setEditPaymentNotesValue(selectedGolfer.payment_notes || '');
+    setIsEditingPaymentNotes(true);
+  };
+
+  // Cancel editing payment notes
+  const handleCancelEditPaymentNotes = () => {
+    setIsEditingPaymentNotes(false);
+    setEditPaymentNotesValue('');
+  };
+
+  // Save payment notes
+  const handleSavePaymentNotes = async () => {
+    if (!selectedGolfer) return;
+    
+    setIsSavingPaymentNotes(true);
+    try {
+      const updatedGolfer = await api.updateGolfer(selectedGolfer.id, {
+        payment_notes: editPaymentNotesValue.trim() || undefined,
+      });
+      toast.success('Payment notes updated');
+      setSelectedGolfer(updatedGolfer);
+      setIsEditingPaymentNotes(false);
+      setEditPaymentNotesValue('');
+      fetchData();
+      // Refresh activity logs to show the payment notes update
+      const response = await api.getGolferActivityHistory(updatedGolfer.id);
+      setGolferActivityLogs(response.activity_logs);
+    } catch (err) {
+      console.error('Error updating payment notes:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to update payment notes');
+    } finally {
+      setIsSavingPaymentNotes(false);
+    }
   };
 
   // Save edited golfer details
@@ -1914,12 +1957,53 @@ export const AdminDashboard: React.FC = () => {
                           <span className="text-green-800 font-medium">{selectedGolfer.receipt_number}</span>
                         </div>
                       )}
-                      {selectedGolfer.payment_notes && (
-                        <div className="mt-2">
-                          <span className="text-green-600 block mb-1">Notes:</span>
-                          <p className="text-green-800 bg-green-100/50 p-2 rounded text-xs whitespace-pre-wrap">{selectedGolfer.payment_notes}</p>
+                      {/* Payment Notes - Editable */}
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-green-600">Notes:</span>
+                          {!isEditingPaymentNotes && (
+                            <button
+                              onClick={handleStartEditPaymentNotes}
+                              className="text-green-600 hover:text-green-800 p-1 rounded hover:bg-green-100"
+                              title="Edit payment notes"
+                            >
+                              <Pencil size={12} />
+                            </button>
+                          )}
                         </div>
-                      )}
+                        
+                        {isEditingPaymentNotes ? (
+                          <div className="space-y-2">
+                            <textarea
+                              value={editPaymentNotesValue}
+                              onChange={(e) => setEditPaymentNotesValue(e.target.value)}
+                              className="w-full px-2 py-1.5 border border-green-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+                              rows={3}
+                              placeholder="Enter payment notes..."
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={handleSavePaymentNotes}
+                                disabled={isSavingPaymentNotes}
+                                className="flex-1 py-1 px-2 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 disabled:opacity-50"
+                              >
+                                {isSavingPaymentNotes ? 'Saving...' : 'Save'}
+                              </button>
+                              <button
+                                onClick={handleCancelEditPaymentNotes}
+                                disabled={isSavingPaymentNotes}
+                                className="flex-1 py-1 px-2 border border-gray-300 rounded text-xs font-medium hover:bg-gray-50 disabled:opacity-50"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-green-800 bg-green-100/50 p-2 rounded text-xs whitespace-pre-wrap">
+                            {selectedGolfer.payment_notes || <span className="italic text-green-500">No notes</span>}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
 
