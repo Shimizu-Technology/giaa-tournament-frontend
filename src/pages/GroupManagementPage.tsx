@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { Card, Button, Select } from '../components/ui';
 import {
@@ -22,6 +22,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { Users, GripVertical, Trash2, RefreshCw, Plus, CheckCircle, ChevronDown, ChevronUp, X, UserPlus, Check, ArrowUp, ArrowDown } from 'lucide-react';
 import { api, Golfer, Group } from '../services/api';
+import { useGolferChannel } from '../hooks/useGolferChannel';
 
 interface DraggableGolferProps {
   golfer: Golfer;
@@ -165,6 +166,26 @@ export const GroupManagementPage: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Real-time updates via ActionCable
+  const handleGolferUpdated = useCallback(() => {
+    // Refresh both unassigned and groups data
+    fetchData(false);
+  }, []);
+
+  const handleGolferCreated = useCallback(() => {
+    fetchData(false);
+  }, []);
+
+  const handleGolferDeleted = useCallback(() => {
+    fetchData(false);
+  }, []);
+
+  useGolferChannel({
+    onGolferUpdated: handleGolferUpdated,
+    onGolferCreated: handleGolferCreated,
+    onGolferDeleted: handleGolferDeleted,
+  });
 
   // Scroll to new group when it's created
   useEffect(() => {

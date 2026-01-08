@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { Card, Button, Input } from '../components/ui';
 import { api, Golfer, Group, GolferStats } from '../services/api';
+import { useGolferChannel } from '../hooks/useGolferChannel';
 import { 
   RefreshCw, 
   Download, 
@@ -61,6 +62,32 @@ export const ReportsPage: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Real-time updates via ActionCable
+  const handleGolferUpdated = useCallback((updatedGolfer: Golfer) => {
+    setGolfers(prev => prev.map(g => g.id === updatedGolfer.id ? updatedGolfer : g));
+    // Also refresh groups since Groups by Hole has embedded golfer data
+    api.getGroups().then(setGroups).catch(console.error);
+    api.getGolferStats().then(setStats).catch(console.error);
+  }, []);
+
+  const handleGolferCreated = useCallback((newGolfer: Golfer) => {
+    setGolfers(prev => [...prev, newGolfer]);
+    api.getGroups().then(setGroups).catch(console.error);
+    api.getGolferStats().then(setStats).catch(console.error);
+  }, []);
+
+  const handleGolferDeleted = useCallback((golferId: number) => {
+    setGolfers(prev => prev.filter(g => g.id !== golferId));
+    api.getGroups().then(setGroups).catch(console.error);
+    api.getGolferStats().then(setStats).catch(console.error);
+  }, []);
+
+  useGolferChannel({
+    onGolferUpdated: handleGolferUpdated,
+    onGolferCreated: handleGolferCreated,
+    onGolferDeleted: handleGolferDeleted,
+  });
 
   // Filter golfers based on search and status
   const filteredGolfers = useMemo(() => {

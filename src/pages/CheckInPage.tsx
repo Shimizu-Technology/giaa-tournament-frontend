@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { Card, Button, Input, Select } from '../components/ui';
 import { Search, CheckCircle, DollarSign, User, RefreshCw, X, UserCheck, CreditCard, Users, Clock, ArrowUpCircle, Send, Copy, Loader2, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api, Golfer, GolferStats, ActivityLog } from '../services/api';
+import { useGolferChannel } from '../hooks/useGolferChannel';
 
 interface PaymentInfo {
   method: 'cash' | 'check' | 'credit';
@@ -514,6 +515,32 @@ export const CheckInPage: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Real-time updates via ActionCable
+  const handleGolferUpdated = useCallback((updatedGolfer: Golfer) => {
+    setGolfers(prev => prev.map(g => g.id === updatedGolfer.id ? updatedGolfer : g));
+    // Also update selectedGolfer if it's the same one
+    setSelectedGolfer(prev => prev?.id === updatedGolfer.id ? updatedGolfer : prev);
+    // Refresh stats
+    api.getGolferStats().then(setStats).catch(console.error);
+  }, []);
+
+  const handleGolferCreated = useCallback((newGolfer: Golfer) => {
+    setGolfers(prev => [...prev, newGolfer]);
+    api.getGolferStats().then(setStats).catch(console.error);
+  }, []);
+
+  const handleGolferDeleted = useCallback((golferId: number) => {
+    setGolfers(prev => prev.filter(g => g.id !== golferId));
+    setSelectedGolfer(prev => prev?.id === golferId ? null : prev);
+    api.getGolferStats().then(setStats).catch(console.error);
+  }, []);
+
+  useGolferChannel({
+    onGolferUpdated: handleGolferUpdated,
+    onGolferCreated: handleGolferCreated,
+    onGolferDeleted: handleGolferDeleted,
+  });
 
   // Auto-hide success message
   useEffect(() => {

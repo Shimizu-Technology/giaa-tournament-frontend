@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { Card, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Select } from '../components/ui';
 import { Search, Download, RefreshCw, ChevronDown, ChevronUp, X, User, Mail, Phone, Building2, Users, MapPin, CheckCircle, CreditCard, FileText, UserPlus, Calendar, FileSpreadsheet, ArrowUpCircle, Ban, RotateCcw, Pencil, Save, Send, Copy, Loader2, ArrowUpDown, UserCheck, SendHorizontal } from 'lucide-react';
@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { api, Golfer, GolferStats, ActivityLog } from '../services/api';
 import { AddGolferModal } from '../components/AddGolferModal';
 import { BulkActionBar, BulkActionButton } from '../components/BulkActionBar';
+import { useGolferChannel } from '../hooks/useGolferChannel';
 import * as XLSX from 'xlsx';
 
 // Format date for display (uses browser's locale which respects timezone)
@@ -133,6 +134,32 @@ export const AdminDashboard: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Real-time updates via ActionCable
+  const handleGolferUpdated = useCallback((updatedGolfer: Golfer) => {
+    setGolfers(prev => prev.map(g => g.id === updatedGolfer.id ? updatedGolfer : g));
+    // Also update selectedGolfer if it's the same one
+    setSelectedGolfer(prev => prev?.id === updatedGolfer.id ? updatedGolfer : prev);
+    // Refresh stats
+    api.getGolferStats().then(setStats).catch(console.error);
+  }, []);
+
+  const handleGolferCreated = useCallback((newGolfer: Golfer) => {
+    setGolfers(prev => [...prev, newGolfer]);
+    api.getGolferStats().then(setStats).catch(console.error);
+  }, []);
+
+  const handleGolferDeleted = useCallback((golferId: number) => {
+    setGolfers(prev => prev.filter(g => g.id !== golferId));
+    setSelectedGolfer(prev => prev?.id === golferId ? null : prev);
+    api.getGolferStats().then(setStats).catch(console.error);
+  }, []);
+
+  useGolferChannel({
+    onGolferUpdated: handleGolferUpdated,
+    onGolferCreated: handleGolferCreated,
+    onGolferDeleted: handleGolferDeleted,
+  });
 
   const filteredGolfers = useMemo(() => {
     const filtered = golfers.filter((golfer) => {
