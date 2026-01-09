@@ -20,7 +20,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Users, GripVertical, Trash2, RefreshCw, Plus, CheckCircle, ChevronDown, ChevronUp, X, UserPlus, Check, ArrowUp, ArrowDown } from 'lucide-react';
+import { Users, GripVertical, Trash2, RefreshCw, Plus, CheckCircle, ChevronDown, ChevronUp, X, UserPlus, Check, ArrowUp, ArrowDown, Search } from 'lucide-react';
 import { api, Golfer, Group } from '../services/api';
 import { useGolferChannel } from '../hooks/useGolferChannel';
 
@@ -120,6 +120,7 @@ export const GroupManagementPage: React.FC = () => {
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<number[]>([]);
   const [isAddingBulk, setIsAddingBulk] = useState(false);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [searchQuery, setSearchQuery] = useState('');
   
   const groupsContainerRef = useRef<HTMLDivElement>(null);
   const newGroupRef = useRef<HTMLDivElement>(null);
@@ -419,12 +420,39 @@ export const GroupManagementPage: React.FC = () => {
     ? [...unassigned, ...groups.flatMap(g => g.golfers || [])].find(g => g.id.toString() === activeId) 
     : null;
 
-  // Compute groups organized by hole
+  // Compute groups organized by hole (with search filtering)
   const groupsByHole = React.useMemo(() => {
+    // Filter groups based on search query
+    const searchLower = searchQuery.toLowerCase().trim();
+    
+    const filteredGroups = searchLower
+      ? groups.filter(group => {
+          // Match hole number (e.g., "1", "1a", "hole 1")
+          const holeLabel = group.hole_position_label?.toLowerCase() || '';
+          const holeNum = group.hole_number?.toString() || '';
+          if (holeLabel.includes(searchLower) || holeNum.includes(searchLower)) {
+            return true;
+          }
+          if (searchLower.replace('hole ', '').trim() === holeNum) {
+            return true;
+          }
+          
+          // Match golfer names
+          const golferMatch = group.golfers?.some(golfer => 
+            golfer.name.toLowerCase().includes(searchLower)
+          );
+          if (golferMatch) {
+            return true;
+          }
+          
+          return false;
+        })
+      : groups;
+    
     // Create a map of hole numbers to groups
     const holeMap = new Map<number | null, Group[]>();
     
-    groups.forEach(group => {
+    filteredGroups.forEach(group => {
       const hole = group.hole_number || null;
       if (!holeMap.has(hole)) {
         holeMap.set(hole, []);
@@ -465,7 +493,7 @@ export const GroupManagementPage: React.FC = () => {
     }
     
     return sortedEntries;
-  }, [groups, sortDirection]);
+  }, [groups, sortDirection, searchQuery]);
 
   if (loading) {
     return (
@@ -496,6 +524,11 @@ export const GroupManagementPage: React.FC = () => {
               <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Group Management</h1>
               <p className="text-xs lg:text-sm text-gray-500 mt-1">
                 {groups.length} group{groups.length !== 1 ? 's' : ''} • {unassigned.length} unassigned
+                {searchQuery && (
+                  <span className="ml-2 text-blue-600">
+                    • Showing {groupsByHole.reduce((acc, h) => acc + h.groups.length, 0)} matching
+                  </span>
+                )}
               </p>
             </div>
             <div className="flex gap-2 w-full sm:w-auto flex-wrap">
@@ -532,6 +565,28 @@ export const GroupManagementPage: React.FC = () => {
                 <span className="hidden sm:inline">{isCreating ? 'Creating...' : 'New Group'}</span>
               </Button>
             </div>
+          </div>
+
+          {/* Search/Filter Bar */}
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search by hole number or golfer name... (view only - does not edit data)"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="block w-full pl-10 pr-10 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
           </div>
 
           {/* Success Message */}
