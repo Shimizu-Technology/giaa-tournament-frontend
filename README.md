@@ -2,6 +2,11 @@
 
 React frontend for the Golf Tournament Registration System. Features public registration, admin dashboard, group management, check-in, and multi-tournament support.
 
+## Prerequisites
+
+- **Node.js 18+** (use [nvm](https://github.com/nvm-sh/nvm) or [asdf](https://asdf-vm.com/))
+- **npm** (comes with Node.js)
+
 ## Tech Stack
 
 - **React 18** with TypeScript
@@ -17,14 +22,17 @@ React frontend for the Golf Tournament Registration System. Features public regi
 ## Quick Start
 
 ```bash
-# 1. Install dependencies
+# 1. Clone and enter the directory
+cd giaa-tournament-frontend
+
+# 2. Install dependencies
 npm install
 
-# 2. Create environment file
+# 3. Create environment file
 cp .env.example .env
-# Edit .env with your values
+# Edit .env with your Clerk publishable key
 
-# 3. Start development server
+# 4. Start development server
 npm run dev
 ```
 
@@ -170,9 +178,6 @@ npm run typecheck
 
 # Linting
 npm run lint
-
-# Format code
-npm run format
 ```
 
 ## Mobile Support
