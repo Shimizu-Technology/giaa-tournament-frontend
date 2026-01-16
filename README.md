@@ -30,13 +30,59 @@ npm install
 
 # 3. Create environment file
 cp .env.example .env
-# Edit .env with your Clerk publishable key
+# ⚠️ Ask Lead for the actual .env values (Clerk publishable key)
 
 # 4. Start development server
 npm run dev
 ```
 
 The app will be available at `http://localhost:5173`
+
+## Team Onboarding
+
+**Do NOT create your own Clerk account.** We share one Clerk application for the team.
+
+1. **Get the `.env` file** - Ask Lead for the real `VITE_CLERK_PUBLISHABLE_KEY`
+2. **Add yourself as an Admin** - See backend README for how to add your email to your LOCAL Admin table
+
+### Local Development: What's Shared vs Local
+
+| What | Where | Shared? |
+|------|-------|---------|
+| Clerk users (login/password) | Clerk cloud | ✅ Yes |
+| Golfers, Tournaments, Groups | Your local PostgreSQL | ❌ No |
+| Admin whitelist | Your local PostgreSQL | ❌ No |
+
+Your database is still 100% local like you're used to. Clerk just handles the login/password verification instead of bcrypt. See the backend README for the full explanation.
+
+## How Clerk Works (Frontend)
+
+Unlike rolling your own auth with bcrypt/JWT, Clerk provides ready-made React components:
+
+```tsx
+// Clerk wraps the entire app
+<ClerkProvider publishableKey={CLERK_KEY}>
+  <App />
+</ClerkProvider>
+
+// Pre-built sign-in component (no forms to build!)
+<SignIn />
+
+// Check if user is logged in
+const { isSignedIn, user } = useUser();
+
+// Get the JWT token to send to backend
+const { getToken } = useAuth();
+const token = await getToken();
+// Send as: Authorization: Bearer <token>
+```
+
+**Key Files:**
+- `src/main.tsx` - ClerkProvider wraps the app
+- `src/components/ProtectedRoute.tsx` - Redirects to login if not signed in
+- `src/services/api.ts` - Attaches JWT token to all API requests
+
+See the backend README for how the token verification works on the server side.
 
 ## Environment Variables
 
