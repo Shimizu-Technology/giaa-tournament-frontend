@@ -1,38 +1,26 @@
 # GIAA Tournament Frontend
 
-React frontend for the Golf Tournament Registration System. Features public registration, admin dashboard, group management, check-in, and multi-tournament support.
+React frontend for the Golf Tournament Registration System.
 
 ## Prerequisites
 
 - **Node.js 18+** (use [nvm](https://github.com/nvm-sh/nvm) or [asdf](https://asdf-vm.com/))
 - **npm** (comes with Node.js)
 
-## Tech Stack
-
-- **React 18** with TypeScript
-- **Vite** (build tool)
-- **Tailwind CSS** (styling)
-- **Clerk** (authentication)
-- **React Router** (navigation)
-- **React Hot Toast** (notifications)
-- **@dnd-kit** (drag-and-drop)
-- **xlsx** (Excel export)
-- **PWA** (installable app)
-
 ## Quick Start
 
 ```bash
-# 1. Clone and enter the directory
+# 1. Enter the directory
 cd giaa-tournament-frontend
 
 # 2. Install dependencies
 npm install
 
-# 3. Create environment file
+# 3. Create .env file
 cp .env.example .env
-# ⚠️ Ask Lead for the actual .env values (Clerk publishable key)
+# ⚠️ Ask Lead for the actual .env values (Clerk key)
 
-# 4. Start development server
+# 4. Start dev server
 npm run dev
 ```
 
@@ -40,12 +28,13 @@ The app will be available at `http://localhost:5173`
 
 ## Team Onboarding
 
-**Do NOT create your own Clerk account.** We share one Clerk application for the team.
+**Do NOT create your own Clerk account.** We share one Clerk application.
 
-1. **Get the `.env` file** - Ask Lead for the real `VITE_CLERK_PUBLISHABLE_KEY`
-2. **Add yourself as an Admin** - See backend README for how to add your email to your LOCAL Admin table
+1. **Get the `.env` file** - Ask Lead for `VITE_CLERK_PUBLISHABLE_KEY`
+2. **Add yourself as Admin** - See backend README (`rails c` → `Admin.create!`)
+3. **Sign up at `/admin/login`** - Creates your Clerk user
 
-### Local Development: What's Shared vs Local
+### What's Shared vs Local
 
 | What | Where | Shared? |
 |------|-------|---------|
@@ -53,184 +42,91 @@ The app will be available at `http://localhost:5173`
 | Golfers, Tournaments, Groups | Your local PostgreSQL | ❌ No |
 | Admin whitelist | Your local PostgreSQL | ❌ No |
 
-Your database is still 100% local like you're used to. Clerk just handles the login/password verification instead of bcrypt. See the backend README for the full explanation.
+Your database is 100% local. Clerk just handles login instead of bcrypt.
 
-## How Clerk Works (Frontend)
+## How Clerk Works
 
-Unlike rolling your own auth with bcrypt/JWT, Clerk provides ready-made React components:
+Unlike bcrypt/JWT, Clerk provides ready-made React components:
 
 ```tsx
-// Clerk wraps the entire app
+// Clerk wraps the app
 <ClerkProvider publishableKey={CLERK_KEY}>
   <App />
 </ClerkProvider>
 
-// Pre-built sign-in component (no forms to build!)
+// Pre-built sign-in (no forms to build!)
 <SignIn />
 
-// Check if user is logged in
-const { isSignedIn, user } = useUser();
+// Check if logged in
+const { isSignedIn } = useUser();
 
-// Get the JWT token to send to backend
+// Get JWT for API calls
 const { getToken } = useAuth();
 const token = await getToken();
-// Send as: Authorization: Bearer <token>
 ```
 
 **Key Files:**
-- `src/main.tsx` - ClerkProvider wraps the app
-- `src/components/ProtectedRoute.tsx` - Redirects to login if not signed in
-- `src/services/api.ts` - Attaches JWT token to all API requests
+- `src/main.tsx` - ClerkProvider wraps app
+- `src/components/ProtectedRoute.tsx` - Redirects if not signed in
+- `src/services/api.ts` - Attaches JWT to API requests
 
-See the backend README for how the token verification works on the server side.
+---
 
-## Environment Variables
+## 📖 Reference
 
-Create a `.env` file:
+Everything below is reference material - read when you need it.
+
+### Tech Stack
+
+- **React 18** with TypeScript
+- **Vite** (build tool)
+- **Tailwind CSS** (styling)
+- **Clerk** (authentication)
+- **React Router** (navigation)
+- **@dnd-kit** (drag-and-drop)
+
+### Environment Variables
 
 ```env
-# Backend API URL
 VITE_API_URL=http://localhost:3000
-
-# Clerk Authentication
 VITE_CLERK_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxx
-
-# PostHog Analytics (optional)
-VITE_PUBLIC_POSTHOG_KEY=phc_xxxxxxxxxxxxx
-VITE_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 ```
 
-## How It Works
-
-### Public Pages
+### Routes
 
 | Route | Description |
 |-------|-------------|
-| `/` | Landing page with tournament info |
-| `/register` | Multi-step registration form |
-| `/registration/success` | Confirmation page |
-| `/payment/success` | Stripe payment success |
-| `/payment/cancel` | Stripe payment cancelled |
-| `/pay/:token` | Payment link page (sent to golfers via email) |
-
-### Admin Pages (Protected)
-
-| Route | Description |
-|-------|-------------|
-| `/admin/login` | Clerk sign-in (also via "Staff Portal" in footer) |
-| `/admin/dashboard` | Golfer list, stats, quick actions |
-| `/admin/groups` | Drag-and-drop group management |
+| `/` | Landing page |
+| `/register` | Multi-step registration |
+| `/admin/login` | Staff sign-in |
+| `/admin/dashboard` | Golfer list & management |
+| `/admin/groups` | Drag-and-drop groups |
 | `/admin/checkin` | Tournament day check-in |
-| `/admin/reports` | View and export reports |
-| `/admin/tournaments` | Create, edit, archive tournaments |
-| `/admin/settings` | Global settings, Stripe config, admins |
+| `/admin/reports` | View & export reports |
 
-### Multi-Tournament System
-
-- **Tournament Selector**: Dropdown in admin header to switch tournaments
-- **Historical View**: Switch to archived tournaments to view past data
-- **Tournament Management**: Create new tournaments, copy from previous year
-- **Scoped Data**: Dashboard, groups, check-in all show data for selected tournament
-
-### Key Features
-
-1. **Registration Flow**
-   - Personal info → Payment selection → Waiver → Confirmation
-   - Stripe embedded checkout modal (no redirect)
-   - Employee discount with validated employee numbers
-   - Automatic waitlist when at capacity
-   - Email confirmation sent on registration
-
-2. **Admin Dashboard**
-   - Search and filter golfers (including cancelled)
-   - Click golfer for detail modal with full activity history
-   - Manage status (registration, payment, check-in)
-   - Cancel registrations and process Stripe refunds
-   - Employee badge display for discounted registrations
-   - Send payment links to unpaid golfers via email
-   - Export to Excel
-
-3. **Payment Links**
-   - Admin can send payment links to golfers who need to pay online
-   - Add Golfer modal with 3 options: Pay on Day, Send Payment Link, Already Paid
-   - "Send Payment Link" automatically emails golfer with secure payment link
-   - Golfer clicks link → sees amount due → completes Stripe checkout
-   - Admin receives notification when payment is completed
-
-4. **Group Management**
-   - Drag-and-drop golfers between groups
-   - Assign starting holes
-   - Auto-assign unassigned golfers
-   - Bulk add players to groups
-
-5. **Check-In**
-   - Tabs: Paid, Not Paid, Waitlist
-   - Quick payment recording with method/receipt tracking
-   - Promote waitlist with one click
-   - Dynamic fee display (employee vs regular rate)
-   - Capacity indicator with reserved slots
-
-6. **Reports**
-   - Interactive data tables
-   - Registrations, Check-In, Payments, Groups, Contacts
-   - Export each report to Excel
-
-## Project Structure
+### Project Structure
 
 ```
 src/
-├── components/
-│   ├── ui/              # Reusable UI components
-│   ├── AdminLayout.tsx  # Admin page wrapper with nav
-│   └── ProtectedRoute.tsx
-├── contexts/
-│   └── TournamentContext.tsx  # Current tournament state
-├── pages/
-│   ├── LandingPage.tsx
-│   ├── RegistrationPage.tsx
-│   ├── PaymentLinkPage.tsx
-│   ├── AdminDashboard.tsx
-│   ├── GroupManagementPage.tsx
-│   ├── CheckInPage.tsx
-│   ├── ReportsPage.tsx
-│   ├── TournamentManagementPage.tsx
-│   └── AdminSettingsPage.tsx
-├── services/
-│   └── api.ts           # API client with all endpoints
-└── App.tsx              # Routes
+├── components/     # UI components
+├── contexts/       # React contexts (TournamentContext)
+├── pages/          # Page components
+├── services/api.ts # API client
+└── App.tsx         # Routes
 ```
 
-## Build & Deploy
+### Development Commands
 
 ```bash
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
+npm run dev        # Start dev server
+npm run build      # Production build
+npm run typecheck  # Type checking
+npm run lint       # Linting
 ```
+
+### Deployment
 
 Deploy to Netlify:
-1. Connect GitHub repo
-2. Build command: `npm run build`
-3. Publish directory: `dist`
-4. Environment variables: Add all `VITE_*` vars
-
-## Development
-
-```bash
-# Type checking
-npm run typecheck
-
-# Linting
-npm run lint
-```
-
-## Mobile Support
-
-The app is fully responsive and works as a PWA:
-- Install on iOS/Android home screen
-- Bottom navigation on mobile
-- Touch-optimized interfaces
-- Offline-capable (static assets)
-
+1. Build command: `npm run build`
+2. Publish directory: `dist`
+3. Add `VITE_*` environment variables
