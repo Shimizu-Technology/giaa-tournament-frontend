@@ -24,6 +24,25 @@ import { Users, GripVertical, Trash2, RefreshCw, Plus, CheckCircle, ChevronDown,
 import { api, Golfer, Group } from '../services/api';
 import { useGolferChannel } from '../hooks/useGolferChannel';
 
+// Highlight helper function
+const highlightText = (text: string, searchQuery: string): React.ReactNode => {
+  if (!searchQuery.trim()) return text;
+  
+  const regex = new RegExp(`(${searchQuery})`, 'gi');
+  const parts = text.split(regex);
+  
+  return parts.map((part, index) =>
+    regex.test(part) ? (
+      <mark key={index} className="bg-yellow-200 dark:bg-yellow-500/30 px-0.5 rounded">
+        {part}
+      </mark>
+    ) : (
+      part
+    )
+  );
+};
+
+
 interface DraggableGolferProps {
   golfer: Golfer;
   onRemove?: () => void;
@@ -768,7 +787,7 @@ export const GroupManagementPage: React.FC = () => {
                                     ]}
                                   />
                                 </div>
-                              </div>
+                              </div>              
                               <button
                                 onClick={() => deleteGroup(group.id)}
                                 className="text-red-500 hover:text-red-700 p-2 touch-manipulation"
@@ -829,7 +848,7 @@ export const GroupManagementPage: React.FC = () => {
                                         className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
                                         defaultValue=""
                                       >
-                                        <option value="">Add one player...</option>
+                                        <option value="">✨ Add player to group...</option>
                                         {unassigned.map(golfer => (
                                           <option key={golfer.id} value={golfer.id}>
                                             {golfer.name}
