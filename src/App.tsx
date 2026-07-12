@@ -17,9 +17,6 @@ import {
 } from './pages';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { TournamentProvider } from './contexts';
-import { OffseasonPage } from './pages/OffseasonPage';
-
-const serviceMode = import.meta.env.VITE_SERVICE_MODE || 'offseason';
 
 // Wrapper component for admin routes with tournament context
 function AdminRouteWrapper({ children }: { children: React.ReactNode }) {
@@ -33,16 +30,6 @@ function AdminRouteWrapper({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
-  if (serviceMode !== 'live') {
-    return (
-      <BrowserRouter>
-        <Routes>
-          <Route path="*" element={<OffseasonPage />} />
-        </Routes>
-      </BrowserRouter>
-    );
-  }
-
   return (
     <BrowserRouter>
       <Toaster position="top-right" />

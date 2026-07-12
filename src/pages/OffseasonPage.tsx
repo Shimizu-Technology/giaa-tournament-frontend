@@ -1,6 +1,6 @@
-import { CalendarClock, CheckCircle2, ExternalLink, Mail, Trophy } from 'lucide-react';
+import { CalendarClock, CheckCircle2, ExternalLink, Mail, RefreshCw, Trophy } from 'lucide-react';
 
-export function OffseasonPage() {
+export function OffseasonPage({ onRetry }: { onRetry?: () => void }) {
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50 text-slate-900">
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-4 py-8 sm:px-6 lg:px-8">
@@ -51,7 +51,7 @@ export function OffseasonPage() {
             </div>
           </div>
 
-          <div className="mt-10 flex justify-center">
+          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a
               href="https://www.guamairport.com/"
               target="_blank"
@@ -60,6 +60,15 @@ export function OffseasonPage() {
             >
               <ExternalLink size={18} /> Visit the airport website
             </a>
+            {onRetry ? (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#1e3a5f] bg-white px-6 py-3 font-semibold text-[#1e3a5f] transition hover:bg-blue-50 sm:w-auto"
+              >
+                <RefreshCw size={18} /> Check services again
+              </button>
+            ) : null}
           </div>
         </section>
 
