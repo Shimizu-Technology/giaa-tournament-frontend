@@ -4,6 +4,7 @@ import { useBackendAvailability } from './hooks/useBackendAvailability';
 import { OffseasonPage } from './pages/OffseasonPage';
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+// Availability is intentionally runtime-driven so resuming the API restores the app without a frontend redeploy.
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const HEALTH_URL = `${API_BASE_URL}/health`;
 
